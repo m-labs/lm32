@@ -2048,15 +2048,29 @@ assign cfg2 = {
    
 // Cache flush
 `ifdef CFG_ICACHE_ENABLED
-assign iflush =    (csr_write_enable_d == `TRUE) 
-                && (csr_d == `LM32_CSR_ICC)
-                && (stall_d == `FALSE)
-                && (kill_d == `FALSE)
-                && (valid_d == `TRUE);
+assign iflush = (   (csr_write_enable_d == `TRUE) 
+                 && (csr_d == `LM32_CSR_ICC)
+                 && (stall_d == `FALSE)
+                 && (kill_d == `FALSE)
+                 && (valid_d == `TRUE))
+// Added by GSI: needed to flush cache after loading firmware per JTAG
+`ifdef CFG_HW_DEBUG_ENABLED
+             ||
+                (   (jtag_csr_write_enable == `TRUE)
+		 && (jtag_csr == `LM32_CSR_ICC))
+`endif
+		 ;
 `endif 
 `ifdef CFG_DCACHE_ENABLED
-assign dflush_x =  (csr_write_enable_q_x == `TRUE) 
-                && (csr_x == `LM32_CSR_DCC);
+assign dflush_x = (   (csr_write_enable_q_x == `TRUE) 
+                   && (csr_x == `LM32_CSR_DCC))
+// Added by GSI: needed to flush cache after loading firmware per JTAG
+`ifdef CFG_HW_DEBUG_ENABLED
+               ||
+                  (   (jtag_csr_write_enable == `TRUE)
+		   && (jtag_csr == `LM32_CSR_DCC))
+`endif
+		   ;
 `endif 
 
 // Extract CSR index
