@@ -2256,7 +2256,7 @@ begin
         operand_0_x <= {`LM32_WORD_WIDTH{1'b0}};
         operand_1_x <= {`LM32_WORD_WIDTH{1'b0}};
         store_operand_x <= {`LM32_WORD_WIDTH{1'b0}};
-        branch_target_x <= {`LM32_WORD_WIDTH{1'b0}};        
+        branch_target_x <= {`LM32_PC_WIDTH{1'b0}};        
         x_result_sel_csr_x <= `FALSE;
 `ifdef LM32_MC_ARITHMETIC_ENABLED
         x_result_sel_mc_arith_x <= `FALSE;
@@ -2317,7 +2317,7 @@ begin
 `endif
         csr_write_enable_x <= `FALSE;
         operand_m <= {`LM32_WORD_WIDTH{1'b0}};
-        branch_target_m <= {`LM32_WORD_WIDTH{1'b0}};
+        branch_target_m <= {`LM32_PC_WIDTH{1'b0}};
         m_result_sel_compare_m <= `FALSE;
 `ifdef CFG_PL_BARREL_SHIFT_ENABLED
         m_result_sel_shift_m <= `FALSE;
