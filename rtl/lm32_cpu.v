@@ -1886,7 +1886,9 @@ assign stall_m =    (stall_wb_load == `TRUE)
 			  exception has occured. This stall will ensure that D_CYC_O and 
 			  store_m will both be low for one cycle.
 			  */
+`ifdef CFG_INTERRUPTS_ENABLED
 		         || ((store_x == `TRUE) && (interrupt_exception == `TRUE))
+`endif
                          || (load_m == `TRUE)
                          || (load_x == `TRUE)
                         ) 
