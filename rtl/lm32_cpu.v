@@ -1273,70 +1273,44 @@ lm32_debug #(
    /*----------------------------------------------------------------------
     Register file instantiation as Pseudo-Dual Port EBRs.
     ----------------------------------------------------------------------*/
-   pmi_ram_dp
+   // Modified by GSI: removed non-portable RAM instantiation
+   lm32_dp_ram
      #(
        // ----- Parameters -----
-       .pmi_wr_addr_depth(1<<5),
-       .pmi_wr_addr_width(5),
-       .pmi_wr_data_width(32),
-       .pmi_rd_addr_depth(1<<5),
-       .pmi_rd_addr_width(5),
-       .pmi_rd_data_width(32),
-       .pmi_regmode("noreg"),
-       .pmi_gsr("enable"),
-       .pmi_resetmode("sync"),
-       .pmi_init_file("none"),
-       .pmi_init_file_format("binary"),
-       .pmi_family(`LATTICE_FAMILY),
-       .module_type("pmi_ram_dp")
+       .addr_depth(1<<5),
+       .addr_width(5),
+       .data_width(32)
        )
    reg_0
      (
       // ----- Inputs -----
-      .Data(w_result),
-      .WrAddress(write_idx_w),
-      .RdAddress(instruction_f[25:21]),
-      .WrClock(clk_i),
-      .RdClock(clk_i),
-      .WrClockEn(`TRUE),
-      .RdClockEn(`TRUE),
-      .WE(reg_write_enable_q_w),
-      .Reset(rst_i), 
+      .clk_i	(clk_i),
+      .rst_i	(rst_i), 
+      .we_i	(reg_write_enable_q_w),
+      .wdata_i	(w_result),
+      .waddr_i	(write_idx_w),
+      .raddr_i	(instruction_f[25:21]),
       // ----- Outputs -----
-      .Q(regfile_data_0)
+      .rdata_o	(regfile_data_0)
       );
 
-   pmi_ram_dp
+   lm32_dp_ram
      #(
-       // ----- Parameters -----
-       .pmi_wr_addr_depth(1<<5),
-       .pmi_wr_addr_width(5),
-       .pmi_wr_data_width(32),
-       .pmi_rd_addr_depth(1<<5),
-       .pmi_rd_addr_width(5),
-       .pmi_rd_data_width(32),
-       .pmi_regmode("noreg"),
-       .pmi_gsr("enable"),
-       .pmi_resetmode("sync"),
-       .pmi_init_file("none"),
-       .pmi_init_file_format("binary"),
-       .pmi_family(`LATTICE_FAMILY),
-       .module_type("pmi_ram_dp")
+       .addr_depth(1<<5),
+       .addr_width(5),
+       .data_width(32)
        )
    reg_1
      (
       // ----- Inputs -----
-      .Data(w_result),
-      .WrAddress(write_idx_w),
-      .RdAddress(instruction_f[20:16]),
-      .WrClock(clk_i),
-      .RdClock(clk_i),
-      .WrClockEn(`TRUE),
-      .RdClockEn(`TRUE),
-      .WE(reg_write_enable_q_w),
-      .Reset(rst_i), 
+      .clk_i	(clk_i),
+      .rst_i	(rst_i), 
+      .we_i	(reg_write_enable_q_w),
+      .wdata_i	(w_result),
+      .waddr_i	(write_idx_w),
+      .raddr_i	(instruction_f[20:16]),
       // ----- Outputs -----
-      .Q(regfile_data_1)
+      .rdata_o	(regfile_data_1)
       );
 `endif
 
