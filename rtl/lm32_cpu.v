@@ -1326,7 +1326,6 @@ lm32_debug #(
    lm32_dp_ram
      #(
        // ----- Parameters -----
-       .addr_depth(1<<5),
        .addr_width(5),
        .data_width(32)
        )
@@ -1345,7 +1344,6 @@ lm32_debug #(
 
    lm32_dp_ram
      #(
-       .addr_depth(1<<5),
        .addr_width(5),
        .data_width(32)
        )
