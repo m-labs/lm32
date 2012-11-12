@@ -12,7 +12,7 @@ CC := $(PREFIX)gcc
 OBJCOPY := $(PREFIX)objcopy
 
 RTL ?= ../rtl
-SOURCES  = tb_lm32_system.v lm32_include.v
+SOURCES  = tb_lm32_system.v lm32_config.v
 SOURCES += $(RTL)/lm32_adder.v $(RTL)/lm32_addsub.v $(RTL)/lm32_cpu.v
 SOURCES += $(RTL)/lm32_dcache.v $(RTL)/lm32_debug.v $(RTL)/lm32_decoder.v
 SOURCES += $(RTL)/lm32_dp_ram.v $(RTL)/lm32_icache.v
@@ -40,7 +40,7 @@ clean:
 	rm -f tb_lm32_system *.vcd *.elf *.vh trace*.txt
 
 tb_lm32_system: $(SOURCES)
-	iverilog -o $@ $(SOURCES) $(EXTRA_DEFINES)
+	iverilog -I. -I$(RTL) -o $@ $(SOURCES) $(EXTRA_DEFINES)
 
 .PHONY: clean
 
