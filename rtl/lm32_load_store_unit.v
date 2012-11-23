@@ -602,10 +602,10 @@ assign next_cycle_type = `LM32_CTYPE_END;
 assign last_word = (&d_adr_o[addr_offset_msb:addr_offset_lsb]) == 1'b1;
 assign first_address = {dcache_refill_address[`LM32_WORD_WIDTH-1:addr_offset_msb+1], {addr_offset_width{1'b0}}, 2'b00};
     end
-    16:
+    default:
     begin
 assign first_cycle_type = `LM32_CTYPE_INCREMENTING;
-assign next_cycle_type = d_adr_o[addr_offset_msb] == 1'b1 ? `LM32_CTYPE_END : `LM32_CTYPE_INCREMENTING;
+assign next_cycle_type = d_adr_o[addr_offset_msb:addr_offset_lsb+1] == {addr_offset_width-1{1'b1}} ? `LM32_CTYPE_END : `LM32_CTYPE_INCREMENTING;
 assign last_word = (&d_adr_o[addr_offset_msb:addr_offset_lsb]) == 1'b1;
 assign first_address = {dcache_refill_address[`LM32_WORD_WIDTH-1:addr_offset_msb+1], {addr_offset_width{1'b0}}, 2'b00};
     end
