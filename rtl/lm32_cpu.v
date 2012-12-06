@@ -827,6 +827,7 @@ wire itlb_exception;                            // Indicates if an ITLB exceptio
 wire dtlb_miss_exception;                       // Indicates if a DTLB miss exception has occured
 wire dtlb_fault_exception;                      // Indicates if a DTLB fault exception has occured
 wire dtlb_exception;                            // Indicates if a DTLB exception has occured
+wire privilege_exception;                       // Indicates if a privilege exception has occured
 `endif
 
 /////////////////////////////////////////////////////
@@ -1834,6 +1835,13 @@ assign dtlb_fault_exception = (   (dtlb_fault_x == `TRUE)
                                && (valid_x == `TRUE)
                             );
 assign dtlb_exception = (dtlb_miss_exception == `TRUE) || (dtlb_fault_exception == `TRUE);
+
+assign privilege_exception = (   (usr == `TRUE)
+                              && (   (csr_write_enable_q_x == `TRUE)
+                                  || (eret_q_x == `TRUE)
+                                  || (bret_q_x == `TRUE)
+                                 )
+                             );
 `endif
 
 `ifdef CFG_DEBUG_ENABLED
@@ -1866,6 +1874,7 @@ assign non_debug_exception_x = (system_call_exception == `TRUE)
 `ifdef CFG_MMU_ENABLED
                             || (itlb_exception == `TRUE)
                             || (dtlb_exception == `TRUE)
+                            || (privilege_exception == `TRUE)
 `endif
                             ;
 
@@ -1893,6 +1902,7 @@ assign exception_x =           (system_call_exception == `TRUE)
 `ifdef CFG_MMU_ENABLED
                             || (itlb_exception == `TRUE)
                             || (dtlb_exception == `TRUE)
+                            || (privilege_exception == `TRUE)
 `endif
                             ;
 `endif
@@ -1951,6 +1961,9 @@ begin
     else
          if (dtlb_fault_exception == `TRUE)
         eid_x = `LM32_EID_DTLB_FAULT;
+    else
+         if (privilege_exception == `TRUE)
+        eid_x = `LM32_EID_PRIVILEGE;
     else
 `endif
         eid_x = `LM32_EID_SCALL;
