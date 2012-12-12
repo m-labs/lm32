@@ -36,6 +36,9 @@
 `define CFG_EXTERNAL_BREAK_ENABLED
 `define CFG_GDBSTUB_ENABLED
 
+// Enable MMU
+`define CFG_MMU_ENABLED
+
 `define CLOG2 $clog2
 
 `endif
