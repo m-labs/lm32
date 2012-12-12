@@ -3,15 +3,15 @@
 /////////////////////////////////////////////////////
 
 module lm32_dp_ram(
-	// ----- Inputs -----
-	clk_i,
-	rst_i,
-	we_i,
-	waddr_i,
-	wdata_i,
-	raddr_i,
-	// ----- Outputs -----
-	rdata_o
+    // ----- Inputs -----
+    clk_i,
+    rst_i,
+    we_i,
+    waddr_i,
+    wdata_i,
+    raddr_i,
+    // ----- Outputs -----
+    rdata_o
 );
 
 /////////////////////////////////////////////////////
@@ -57,9 +57,9 @@ assign rdata_o = mem[raddr_r];
 
 always @(posedge clk_i)
 begin
-	if (we_i)
-		mem[waddr_i] <= wdata_i;
-	raddr_r <= raddr_i;
+    if (we_i)
+        mem[waddr_i] <= wdata_i;
+    raddr_r <= raddr_i;
 end
 
 endmodule
