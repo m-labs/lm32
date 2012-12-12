@@ -243,6 +243,9 @@
 `define LM32_CSR_WP1                    `LM32_CSR_WIDTH'h19
 `define LM32_CSR_WP2                    `LM32_CSR_WIDTH'h1a
 `define LM32_CSR_WP3                    `LM32_CSR_WIDTH'h1b
+`define LM32_CSR_TLBVADDR               `LM32_CSR_WIDTH'h1e
+`define LM32_CSR_TLBPADDR               `LM32_CSR_WIDTH'h1f  // write only
+`define LM32_CSR_TLBBADVADDR            `LM32_CSR_WIDTH'h1f  // read only
 `endif
 
 // Values for WPC CSR
@@ -251,6 +254,12 @@
 `define LM32_WPC_C_READ                 2'b01
 `define LM32_WPC_C_WRITE                2'b10
 `define LM32_WPC_C_READ_WRITE           2'b11
+
+// TLB operation codes
+`define LM32_TLB_OP_RNG                 2:1
+`define LM32_TLB_OP_NOOP                2'h0
+`define LM32_TLB_OP_FLUSH               2'h1
+`define LM32_TLB_OP_INVALIDATE          2'h2
 
 // Exception IDs
 `define LM32_EID_WIDTH                  3

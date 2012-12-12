@@ -2,6 +2,8 @@
 //   >>>>>>>>>>>>>>>>>>>>>>> COPYRIGHT NOTICE <<<<<<<<<<<<<<<<<<<<<<<<<
 //   ------------------------------------------------------------------
 //   Copyright (c) 2006-2011 by Lattice Semiconductor Corporation
+//   Copyright (c) 2011-2012 Yann Sionneau <yann.sionneau@gmail.com>
+//   Copyright (c) 2012 Michael Walle <michael@walle.cc>
 //   ALL RIGHTS RESERVED
 //   ------------------------------------------------------------------
 //
@@ -776,6 +778,23 @@ reg data_bus_error_seen;                        // Indicates if a data bus error
 
 `ifdef CFG_EXTERNAL_BREAK_ENABLED
 reg ext_break_r;
+`endif
+
+`ifdef CFG_MMU_ENABLED
+reg itlb_invalidate;                            // Invalidate an ITLB entry
+reg itlb_flush;                                 // Flush all ITLB entries
+reg itlb_update;                                // Update an ITLB entry
+reg dtlb_invalidate;                            // Invalidate a DTLB entry
+reg dtlb_flush;                                 // Flush all DTLB entries
+reg dtlb_update;                                // Update an DTLB entry
+reg [`LM32_WORD_RNG] tlbpaddr;                  // TLBPADDR CSR
+reg [`LM32_WORD_RNG] tlbvaddr;                  // TLBVADDR CSR
+reg [`LM32_WORD_RNG] tlbbadvaddr;               // TLBBADVADDR CSR
+wire [`LM32_WORD_RNG] dtlb_miss_vfn;            // VFN of the missed address
+wire [`LM32_WORD_RNG] itlb_miss_vfn;            // VFN of the missed instruction
+
+wire itlb_exception;                            // Indicates if an ITLB exception has occured
+wire dtlb_exception;                            // Indicates if a DTLB exception has occured
 `endif
 
 /////////////////////////////////////////////////////
@@ -2121,6 +2140,10 @@ begin
     `LM32_CSR_JRX:  csr_read_data_x = jrx_csr_read_data;
 `endif
     `LM32_CSR_CFG2: csr_read_data_x = cfg2;
+`ifdef CFG_MMU_ENABLED
+    `LM32_CSR_TLBVADDR: csr_read_data_x = tlbvaddr;
+    `LM32_CSR_TLBBADVADDR: csr_read_data_x = tlbbadvaddr;
+`endif
 
     default:        csr_read_data_x = {`LM32_WORD_WIDTH{1'bx}};
     endcase
@@ -2129,6 +2152,95 @@ end
 /////////////////////////////////////////////////////
 // Sequential Logic
 /////////////////////////////////////////////////////
+
+`ifdef CFG_MMU_ENABLED
+// TLBVADDR CSR
+always @(posedge clk_i `CFG_RESET_SENSITIVITY)
+begin
+    if (rst_i == `TRUE)
+    begin
+        itlb_flush <= `FALSE;
+        itlb_invalidate <= `FALSE;
+        dtlb_flush <= `FALSE;
+        dtlb_invalidate <= `FALSE;
+        tlbvaddr <= {`LM32_WORD_WIDTH{1'b0}};
+    end
+    else
+    begin
+        itlb_flush <= `FALSE;
+        itlb_invalidate <= `FALSE;
+        dtlb_flush <= `FALSE;
+        dtlb_invalidate <= `FALSE;
+        if (stall_x == `FALSE)
+        begin
+            if (dtlb_exception == `TRUE)
+                tlbvaddr <= {dtlb_miss_vfn[`LM32_WORD_WIDTH-1:1], 1'b1};
+            else if (itlb_exception == `TRUE)
+                tlbvaddr <= {itlb_miss_vfn[`LM32_WORD_WIDTH-1:1], 1'b0};
+            else if ((csr_write_enable_q_x == `TRUE) && (csr_x == `LM32_CSR_TLBVADDR))
+            begin
+                tlbvaddr <= operand_1_x;
+                if (operand_1_x[0] == 1'b0)
+                begin
+                    case (operand_1_x[`LM32_TLB_OP_RNG])
+                    `LM32_TLB_OP_FLUSH:      itlb_flush <= `TRUE;
+                    `LM32_TLB_OP_INVALIDATE: itlb_invalidate <= `TRUE;
+                    endcase
+                end
+                if (operand_1_x[0] == 1'b1)
+                begin
+                    case (operand_1_x[`LM32_TLB_OP_RNG])
+                    `LM32_TLB_OP_FLUSH:      dtlb_flush <= `TRUE;
+                    `LM32_TLB_OP_INVALIDATE: dtlb_invalidate <= `TRUE;
+                    endcase
+                end
+            end
+        end
+    end
+end
+
+// TLBPADDR CSR
+always @(posedge clk_i `CFG_RESET_SENSITIVITY)
+begin
+    if (rst_i == `TRUE)
+    begin
+        itlb_update <= `FALSE;
+        dtlb_update <= `FALSE;
+        tlbpaddr <= {`LM32_WORD_WIDTH{1'b0}};
+    end
+    else
+    begin
+        itlb_update <= `FALSE;
+        dtlb_update <= `FALSE;
+        if ((csr_write_enable_q_x == `TRUE) && (csr_x == `LM32_CSR_TLBPADDR) && (stall_x == `FALSE))
+        begin
+            /* updates take change in the M stage */
+            tlbpaddr <= operand_1_x;
+            if (operand_1_x[0] == 1'b0)
+                itlb_update <= `TRUE;
+            if (operand_1_x[0] == 1'b1)
+                dtlb_update <= `TRUE;
+        end
+    end
+end
+
+// TLBBADVADDR CSR
+always @(posedge clk_i `CFG_RESET_SENSITIVITY)
+begin
+    if (rst_i == `TRUE)
+        tlbbadvaddr <= {`LM32_WORD_WIDTH{1'b0}};
+    else
+    begin
+        if (stall_x == `FALSE)
+        begin
+            if (dtlb_exception == `TRUE)
+                tlbbadvaddr <= adder_result_x;
+            else if (itlb_exception == `TRUE)
+                tlbbadvaddr <= {pc_x, {`LM32_WORD_WIDTH-`LM32_PC_WIDTH{1'b0}}};
+        end
+    end
+end
+`endif
 
 // Exception Base Address (EBA) CSR
 always @(posedge clk_i `CFG_RESET_SENSITIVITY)
