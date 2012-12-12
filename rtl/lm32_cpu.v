@@ -717,9 +717,9 @@ wire kill_x;                                    // Kill instruction in X stage
 wire kill_m;                                    // Kill instruction in M stage
 wire kill_w;                                    // Kill instruction in W stage
 
-reg [`LM32_PC_WIDTH+2-1:8] eba;                 // Exception Base Address (EBA) CSR
+reg [`LM32_EBA_RNG] eba;                        // Exception Base Address (EBA) CSR
 `ifdef CFG_DEBUG_ENABLED
-reg [`LM32_PC_WIDTH+2-1:8] deba;                // Debug Exception Base Address (DEBA) CSR
+reg [`LM32_EBA_RNG] deba;                       // Debug Exception Base Address (DEBA) CSR
 `endif
 reg [`LM32_EID_RNG] eid_x;                      // Exception ID in X stage
 `ifdef CFG_TRACE_ENABLED
@@ -2112,9 +2112,9 @@ begin
     `LM32_CSR_CC:   csr_read_data_x = cc;
 `endif
     `LM32_CSR_CFG:  csr_read_data_x = cfg;
-    `LM32_CSR_EBA:  csr_read_data_x = {eba, 8'h00};
+    `LM32_CSR_EBA:  csr_read_data_x = {eba, {(`LM32_WORD_WIDTH-`LM32_EBA_WIDTH){1'b0}}};
 `ifdef CFG_DEBUG_ENABLED
-    `LM32_CSR_DEBA: csr_read_data_x = {deba, 8'h00};
+    `LM32_CSR_DEBA: csr_read_data_x = {deba, {(`LM32_WORD_WIDTH-`LM32_EBA_WIDTH){1'b0}}};
 `endif
 `ifdef CFG_JTAG_UART_ENABLED
     `LM32_CSR_JTX:  csr_read_data_x = jtx_csr_read_data;
@@ -2134,14 +2134,14 @@ end
 always @(posedge clk_i `CFG_RESET_SENSITIVITY)
 begin
     if (rst_i == `TRUE)
-        eba <= eba_reset[`LM32_PC_WIDTH+2-1:8];
+        eba <= eba_reset[`LM32_EBA_RNG];
     else
     begin
         if ((csr_write_enable_q_x == `TRUE) && (csr_x == `LM32_CSR_EBA) && (stall_x == `FALSE))
-            eba <= operand_1_x[`LM32_PC_WIDTH+2-1:8];
+            eba <= operand_1_x[`LM32_EBA_RNG];
 `ifdef CFG_HW_DEBUG_ENABLED
         if ((jtag_csr_write_enable == `TRUE) && (jtag_csr == `LM32_CSR_EBA))
-            eba <= jtag_csr_write_data[`LM32_PC_WIDTH+2-1:8];
+            eba <= jtag_csr_write_data[`LM32_EBA_RNG];
 `endif
     end
 end
@@ -2151,14 +2151,14 @@ end
 always @(posedge clk_i `CFG_RESET_SENSITIVITY)
 begin
     if (rst_i == `TRUE)
-        deba <= deba_reset[`LM32_PC_WIDTH+2-1:8];
+        deba <= deba_reset[`LM32_EBA_RNG];
     else
     begin
         if ((csr_write_enable_q_x == `TRUE) && (csr_x == `LM32_CSR_DEBA) && (stall_x == `FALSE))
-            deba <= operand_1_x[`LM32_PC_WIDTH+2-1:8];
+            deba <= operand_1_x[`LM32_EBA_RNG];
 `ifdef CFG_HW_DEBUG_ENABLED
         if ((jtag_csr_write_enable == `TRUE) && (jtag_csr == `LM32_CSR_DEBA))
-            deba <= jtag_csr_write_data[`LM32_PC_WIDTH+2-1:8];
+            deba <= jtag_csr_write_data[`LM32_EBA_RNG];
 `endif
     end
 end

@@ -255,14 +255,18 @@
 // Exception IDs
 `define LM32_EID_WIDTH                  3
 `define LM32_EID_RNG                    (`LM32_EID_WIDTH-1):0
-`define LM32_EID_RESET                  3'h0
-`define LM32_EID_BREAKPOINT             3'd1
-`define LM32_EID_INST_BUS_ERROR         3'h2
-`define LM32_EID_WATCHPOINT             3'd3
-`define LM32_EID_DATA_BUS_ERROR         3'h4
-`define LM32_EID_DIVIDE_BY_ZERO         3'h5
-`define LM32_EID_INTERRUPT              3'h6
-`define LM32_EID_SCALL                  3'h7
+`define LM32_EID_RESET                  `LM32_EID_WIDTH'h0
+`define LM32_EID_BREAKPOINT             `LM32_EID_WIDTH'h1
+`define LM32_EID_INST_BUS_ERROR         `LM32_EID_WIDTH'h2
+`define LM32_EID_WATCHPOINT             `LM32_EID_WIDTH'h3
+`define LM32_EID_DATA_BUS_ERROR         `LM32_EID_WIDTH'h4
+`define LM32_EID_DIVIDE_BY_ZERO         `LM32_EID_WIDTH'h5
+`define LM32_EID_INTERRUPT              `LM32_EID_WIDTH'h6
+`define LM32_EID_SCALL                  `LM32_EID_WIDTH'h7
+
+// Exception Base Address
+`define LM32_EBA_WIDTH                  (`LM32_PC_WIDTH-`LM32_EID_WIDTH-3)
+`define LM32_EBA_RNG                    (`LM32_PC_WIDTH+2-1):(`LM32_EID_WIDTH+3+2)
 
 // Pipeline result selection mux controls
 
