@@ -187,6 +187,20 @@ always @(posedge sys_clk) begin
 end
 `endif
 
+`ifdef TB_ENABLE_TLB_TRACES
+always @(posedge sys_clk)
+begin
+	if (lm32.cpu.instruction_unit.itlb.write_port_enable)
+		$display("itlb write @%04x 0x%08x",
+				lm32.cpu.instruction_unit.itlb.write_address,
+				lm32.cpu.instruction_unit.itlb.write_data);
+	if (lm32.cpu.load_store_unit.dtlb.write_port_enable)
+		$display("dtlb write @%04x 0x%08x",
+				lm32.cpu.instruction_unit.itlb.write_address,
+				lm32.cpu.instruction_unit.itlb.write_data);
+end
+`endif
+
 // dump signals
 reg [256*8:0] vcdfile;
 initial begin
