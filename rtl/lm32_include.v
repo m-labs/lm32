@@ -274,6 +274,8 @@
 `define LM32_EID_INTERRUPT              `LM32_EID_WIDTH'h6
 `define LM32_EID_SCALL                  `LM32_EID_WIDTH'h7
 `define LM32_EID_ITLB_MISS              `LM32_EID_WIDTH'h8
+`define LM32_EID_DTLB_MISS              `LM32_EID_WIDTH'h9
+`define LM32_EID_DTLB_FAULT             `LM32_EID_WIDTH'ha
 
 // Exception Base Address
 `define LM32_EBA_WIDTH                  (`LM32_PC_WIDTH-`LM32_EID_WIDTH-3)

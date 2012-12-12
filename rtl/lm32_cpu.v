@@ -818,9 +818,14 @@ wire [`LM32_WORD_RNG] dtlb_miss_vfn;            // VFN of the missed address
 wire [`LM32_WORD_RNG] itlb_miss_vfn;            // VFN of the missed instruction
 wire itlb_miss_x;                               // Indicates if an ITLB miss has occured in the X stage
 wire itlb_stall_request;                        // Stall pipeline because instruction TLB is busy
+wire dtlb_miss_x;                               // Indicates if an DTLB miss has occured in the X stage
+wire dtlb_fault_x;                              // Indicates if an DTLB fault has occured in the X stage
+wire dtlb_stall_request;                        // Stall pipeline because data TLB is busy
 
 wire itlb_miss_exception;                       // Indicates if an ITLB miss exception has occured
 wire itlb_exception;                            // Indicates if an ITLB exception has occured
+wire dtlb_miss_exception;                       // Indicates if a DTLB miss exception has occured
+wire dtlb_fault_exception;                      // Indicates if a DTLB fault exception has occured
 wire dtlb_exception;                            // Indicates if a DTLB exception has occured
 `endif
 
@@ -1046,6 +1051,10 @@ lm32_load_store_unit #(
     .load_store_address_x   (adder_result_x),
     .load_store_address_m   (operand_m),
     .load_store_address_w   (operand_w[1:0]),
+`ifdef CFG_MMU_ENABLED
+    .load_d                 (load_d),
+    .store_d                (store_d),
+`endif
     .load_x                 (load_x),
     .store_x                (store_x),
     .load_q_x               (load_q_x),
@@ -1059,6 +1068,14 @@ lm32_load_store_unit #(
 `endif
 `ifdef CFG_IROM_ENABLED
     .irom_data_m            (irom_data_m),
+`endif
+`ifdef CFG_MMU_ENABLED
+    .dtlb_enable            (dtlbe),
+    .tlbpaddr               (tlbpaddr),
+    .tlbvaddr               (tlbvaddr),
+    .dtlb_update            (dtlb_update),
+    .dtlb_flush             (dtlb_flush),
+    .dtlb_invalidate        (dtlb_invalidate),
 `endif
     // From Wishbone
     .d_dat_i                (D_DAT_I),
@@ -1081,6 +1098,12 @@ lm32_load_store_unit #(
 `endif
     .load_data_w            (load_data_w),
     .stall_wb_load          (stall_wb_load),
+`ifdef CFG_MMU_ENABLED
+    .dtlb_stall_request     (dtlb_stall_request),
+    .dtlb_miss_vfn          (dtlb_miss_vfn),
+    .dtlb_miss_x            (dtlb_miss_x),
+    .dtlb_fault_x           (dtlb_fault_x),
+`endif
     // To Wishbone
     .d_dat_o                (D_DAT_O),
     .d_adr_o                (D_ADR_O),
@@ -1801,6 +1824,16 @@ assign itlb_miss_exception = (   (itlb_miss_x == `TRUE)
                               && (valid_x == `TRUE)
                             );
 assign itlb_exception = (itlb_miss_exception == `TRUE);
+
+assign dtlb_miss_exception = (   (dtlb_miss_x == `TRUE)
+                              && (dtlbe == `TRUE)
+                              && (valid_x == `TRUE)
+                            );
+assign dtlb_fault_exception = (   (dtlb_fault_x == `TRUE)
+                               && (dtlbe == `TRUE)
+                               && (valid_x == `TRUE)
+                            );
+assign dtlb_exception = (dtlb_miss_exception == `TRUE) || (dtlb_fault_exception == `TRUE);
 `endif
 
 `ifdef CFG_DEBUG_ENABLED
@@ -1832,6 +1865,7 @@ assign non_debug_exception_x = (system_call_exception == `TRUE)
 `endif
 `ifdef CFG_MMU_ENABLED
                             || (itlb_exception == `TRUE)
+                            || (dtlb_exception == `TRUE)
 `endif
                             ;
 
@@ -1858,6 +1892,7 @@ assign exception_x =           (system_call_exception == `TRUE)
 `endif
 `ifdef CFG_MMU_ENABLED
                             || (itlb_exception == `TRUE)
+                            || (dtlb_exception == `TRUE)
 `endif
                             ;
 `endif
@@ -1910,6 +1945,12 @@ begin
 `ifdef CFG_MMU_ENABLED
          if (itlb_miss_exception == `TRUE)
         eid_x = `LM32_EID_ITLB_MISS;
+    else
+         if (dtlb_miss_exception == `TRUE)
+        eid_x = `LM32_EID_DTLB_MISS;
+    else
+         if (dtlb_fault_exception == `TRUE)
+        eid_x = `LM32_EID_DTLB_FAULT;
     else
 `endif
         eid_x = `LM32_EID_SCALL;
@@ -2031,6 +2072,7 @@ assign stall_m =    (stall_wb_load == `TRUE)
 `endif
 `ifdef CFG_MMU_ENABLED
                  || (itlb_stall_request == `TRUE)       // ITLB is busy
+                 || (dtlb_stall_request == `TRUE)       // DTLB is busy or a lookup is in progress
 `endif
                  ;
 

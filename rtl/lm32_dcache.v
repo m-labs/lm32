@@ -93,6 +93,9 @@ module lm32_dcache (
     refill_ready,
     refill_data,
     dflush,
+`ifdef CFG_MMU_ENABLED
+    dtlb_miss_x,
+`endif
     // ----- Outputs -----
     stall_request,
     restart_request,
@@ -118,7 +121,11 @@ localparam addr_offset_lsb = 2;
 localparam addr_offset_msb = (addr_offset_lsb+addr_offset_width-1);
 localparam addr_set_lsb = (addr_offset_msb+1);
 localparam addr_set_msb = (addr_set_lsb+addr_set_width-1);
+`ifdef CFG_MMU_ENABLED
+localparam addr_tag_lsb = (addr_offset_msb+1);
+`else
 localparam addr_tag_lsb = (addr_set_msb+1);
+`endif
 localparam addr_tag_msb = `CLOG2(`CFG_DCACHE_LIMIT-`CFG_DCACHE_BASE_ADDRESS);
 localparam addr_tag_width = (addr_tag_msb-addr_tag_lsb+1);
 
@@ -144,6 +151,10 @@ input refill_ready;                                     // Indicates next word o
 input [`LM32_WORD_RNG] refill_data;                     // Refill data
 
 input dflush;                                           // Indicates cache should be flushed
+
+`ifdef CFG_MMU_ENABLED
+input dtlb_miss_x;                                      // Indicates if a DTLB miss has occured
+`endif
 
 /////////////////////////////////////////////////////
 // Outputs
@@ -398,7 +409,11 @@ assign flushing = state[0];
 assign check = state[1];
 assign refill = state[2];
 
-assign miss = (~(|way_match)) && (load_q_m == `TRUE) && (stall_m == `FALSE);
+assign miss = (~(|way_match)) && (load_q_m == `TRUE) && (stall_m == `FALSE)
+`ifdef CFG_MMU_ENABLED
+        && (~dtlb_miss_x)
+`endif
+        ;
 assign stall_request = (check == `FALSE);
 
 /////////////////////////////////////////////////////

@@ -80,6 +80,10 @@ module lm32_load_store_unit (
     load_store_address_x,
     load_store_address_m,
     load_store_address_w,
+`ifdef CFG_MMU_ENABLED
+    load_d,
+    store_d,
+`endif
     load_x,
     store_x,
     load_q_x,
@@ -93,6 +97,14 @@ module lm32_load_store_unit (
 `endif
 `ifdef CFG_IROM_ENABLED
     irom_data_m,
+`endif
+`ifdef CFG_MMU_ENABLED
+    dtlb_enable,
+    tlbpaddr,
+    tlbvaddr,
+    dtlb_update,
+    dtlb_flush,
+    dtlb_invalidate,
 `endif
     // From Wishbone
     d_dat_i,
@@ -115,6 +127,12 @@ module lm32_load_store_unit (
 `endif
     load_data_w,
     stall_wb_load,
+`ifdef CFG_MMU_ENABLED
+    dtlb_stall_request,
+    dtlb_miss_vfn,
+    dtlb_miss_x,
+    dtlb_fault_x,
+`endif
     // To Wishbone
     d_dat_o,
     d_adr_o,
@@ -159,6 +177,10 @@ input [`LM32_WORD_RNG] store_operand_x;                 // Data read from regist
 input [`LM32_WORD_RNG] load_store_address_x;            // X stage load/store address
 input [`LM32_WORD_RNG] load_store_address_m;            // M stage load/store address
 input [1:0] load_store_address_w;                       // W stage load/store address (only least two significant bits are needed)
+`ifdef CFG_MMU_ENABLED
+input load_d;                                           // Load instruction in D stage
+input store_d;                                          // Store instruction in D stage
+`endif
 input load_x;                                           // Load instruction in X stage
 input store_x;                                          // Store instruction in X stage
 input load_q_x;                                         // Load instruction in X stage
@@ -174,6 +196,15 @@ input dflush;                                           // Flush the data cache
 
 `ifdef CFG_IROM_ENABLED
 input [`LM32_WORD_RNG] irom_data_m;                     // Data from Instruction-ROM
+`endif
+
+`ifdef CFG_MMU_ENABLED
+input dtlb_enable;                                      // Data TLB enable
+input [`LM32_WORD_RNG] tlbpaddr;                        // TLBPADDR CSR
+input [`LM32_WORD_RNG] tlbvaddr;                        // TLBVADDR CSR
+input dtlb_update;                                      // Data TLB update
+input dtlb_flush;                                       // Data TLB flush
+input dtlb_invalidate;                                  // Data TLB invalidate
 `endif
 
 input [`LM32_WORD_RNG] d_dat_i;                         // Data Wishbone interface read data
@@ -211,6 +242,17 @@ output [`LM32_WORD_RNG] load_data_w;                    // Result of a load inst
 reg    [`LM32_WORD_RNG] load_data_w;
 output stall_wb_load;                                   // Request to stall pipeline due to a load from the Wishbone interface
 reg    stall_wb_load;
+
+`ifdef CFG_MMU_ENABLED
+output dtlb_stall_request;                              // Data TLB stall request
+wire   dtlb_stall_request;
+output [`LM32_WORD_RNG] dtlb_miss_vfn;                  // Virtual frame number of missed load or store address
+wire   [`LM32_WORD_RNG] dtlb_miss_vfn;
+output dtlb_miss_x;                                     // Indicates if a data TLB miss has occured
+wire   dtlb_miss_x;
+output dtlb_fault_x;                                    // Indicates if a data TLB fault has occured in X stage
+wire   dtlb_fault_x;
+`endif
 
 output [`LM32_WORD_RNG] d_dat_o;                        // Data Wishbone interface write data
 reg    [`LM32_WORD_RNG] d_dat_o;
@@ -275,6 +317,10 @@ reg  irom_select_m;
 reg wb_select_m;
 reg [`LM32_WORD_RNG] wb_data_m;                         // Data read from Wishbone
 reg wb_load_complete;                                   // Indicates when a Wishbone load is complete
+`ifdef CFG_MMU_ENABLED
+wire [`LM32_WORD_RNG] physical_load_store_address_m;    // X stage physical load/store address
+wire cache_inhibit_x;                                   // Indicates if data cache should be bypassed
+`endif
 
 /////////////////////////////////////////////////////
 // Functions
@@ -384,7 +430,12 @@ lm32_dcache #(
     .stall_x                (stall_x),
     .stall_m                (stall_m),
     .address_x              (load_store_address_x),
+`ifdef CFG_MMU_ENABLED
+    /* VIPT cache, address_m is (only) used for tag */
+    .address_m              (physical_load_store_address_m),
+`else
     .address_m              (load_store_address_m),
+`endif
     .load_q_m               (load_q_m & dcache_select_m),
     .store_q_m              (store_q_m & dcache_select_m),
     .store_data             (store_data_m),
@@ -392,6 +443,9 @@ lm32_dcache #(
     .refill_ready           (dcache_refill_ready),
     .refill_data            (wb_data_m),
     .dflush                 (dflush),
+`ifdef CFG_MMU_ENABLED
+    .dtlb_miss_x            (dtlb_miss_x),
+`endif
     // ----- Outputs -----
     .stall_request          (dcache_stall_request),
     .restart_request        (dcache_restart_request),
@@ -399,6 +453,36 @@ lm32_dcache #(
     .refill_address         (dcache_refill_address),
     .refilling              (dcache_refilling),
     .load_data              (dcache_data_m)
+    );
+`endif
+
+`ifdef CFG_MMU_ENABLED
+// Data TLB
+lm32_dtlb dtlb (
+    // ----- Inputs -----
+    .clk_i                  (clk_i),
+    .rst_i                  (rst_i),
+    .enable                 (dtlb_enable),
+    .stall_x                (stall_x),
+    .stall_m                (stall_m),
+    .address_x              (load_store_address_x),
+    .address_m              (load_store_address_m),
+    .load_d                 (load_d),
+    .store_d                (store_d),
+    .load_q_x               (load_q_x),
+    .store_q_x              (store_q_x),
+    .tlbpaddr               (tlbpaddr),
+    .tlbvaddr               (tlbvaddr),
+    .update                 (dtlb_update),
+    .flush                  (dtlb_flush),
+    .invalidate             (dtlb_invalidate),
+    // ----- Outputs -----
+    .physical_load_store_address_m (physical_load_store_address_m),
+    .stall_request          (dtlb_stall_request),
+    .miss_vfn               (dtlb_miss_vfn),
+    .miss_x                 (dtlb_miss_x),
+    .fault_x                (dtlb_fault_x),
+    .cache_inhibit_x        (cache_inhibit_x)
     );
 `endif
 
@@ -425,6 +509,9 @@ lm32_dcache #(
 `endif
 `ifdef CFG_IROM_ENABLED
                             && (irom_select_x == `FALSE)
+`endif
+`ifdef CFG_MMU_ENABLED
+                            && (cache_inhibit_x == `FALSE)
 `endif
                      ;
 `endif
@@ -706,7 +793,11 @@ begin
             begin
                 // Data cache is write through, so all stores go to memory
                 d_dat_o <= store_data_m;
-                d_adr_o <= load_store_address_m;
+                d_adr_o <=
+`ifdef CFG_MMU_ENABLED
+                    (dtlb_enable) ? physical_load_store_address_m :
+`endif
+                    load_store_address_m;
                 d_cyc_o <= `TRUE;
                 d_sel_o <= byte_enable_m;
                 d_stb_o <= `TRUE;
@@ -721,7 +812,11 @@ begin
             begin
                 // Read requested address
                 stall_wb_load <= `FALSE;
-                d_adr_o <= load_store_address_m;
+                d_adr_o <=
+`ifdef CFG_MMU_ENABLED
+                    (dtlb_enable) ? physical_load_store_address_m :
+`endif
+                    load_store_address_m;
                 d_cyc_o <= `TRUE;
                 d_sel_o <= byte_enable_m;
                 d_stb_o <= `TRUE;
