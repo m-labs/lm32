@@ -43,7 +43,10 @@ clean:
 tb_lm32_system: $(SOURCES)
 	iverilog -I. -I$(RTL) -o $@ $(SOURCES) $(EXTRA_DEFINES)
 
-.PHONY: clean
+unittest:
+	make -C unittests check
+
+.PHONY: clean unittest
 
 hello_world.elf: crt.S hello_world.c
 pipe1.elf: pipe1.S

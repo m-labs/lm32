@@ -149,6 +149,55 @@ end
 assign i_dat = pmem_dat_o;
 assign pmem_adr = i_adr[15:2];
 
+task dump_processor_state;
+begin
+	$display("Processor state:");
+	$display("  PSW=%08x", lm32.cpu.psw);
+	$display("  IE=%08x IP=%08x IM=%08x",
+		lm32.cpu.interrupt_unit.ie,
+		lm32.cpu.interrupt_unit.ip,
+		lm32.cpu.interrupt_unit.im
+	);
+	for(i=0; i<32; i=i+1) begin
+		if(i%4 == 0)
+			$write("  ");
+		$write("r%02d=%08x ", i, lm32.cpu.reg_0.mem[i]);
+		if((i+1)%4 == 0)
+			$write("\n");
+	end
+end
+endtask
+
+// QEMU test core
+reg [15:0] testname_adr;
+reg [8*32:0] testname;
+reg testname_end;
+always @(posedge sys_clk) begin
+	if(d_cyc & d_stb & d_we & d_ack)
+	begin
+		if(d_adr == 32'hffff0000)
+			$finish;
+		else if(d_adr == 32'hffff0004) begin
+			// is there any better way to do this?
+			testname_end = 1'b0;
+			for(i=0; i<32; i=i+1) begin
+				testname = testname << 8;
+				if(testname_end == 1'b0) begin
+					testname[7:0] = mem[testname_adr+i];
+					if(mem[testname_adr+i] == 8'b0)
+						testname_end = 1'b1;
+				end else
+					testname[7:0] = 8'b0;
+			end
+			$display("TC %-32s %s", testname, (|d_dat_o) ? "FAILED" : "OK");
+			if(|d_dat_o)
+				dump_processor_state();
+		end
+		else if(d_adr == 32'hffff0008)
+			testname_adr <= d_dat_o[15:0];
+	end
+end
+
 // wishbone interface for data bus
 always @(posedge sys_clk) begin
 	if(sys_rst)
