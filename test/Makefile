@@ -20,6 +20,7 @@ SOURCES += $(RTL)/lm32_instruction_unit.v $(RTL)/lm32_interrupt.v
 SOURCES += $(RTL)/lm32_jtag.v $(RTL)/lm32_load_store_unit.v
 SOURCES += $(RTL)/lm32_logic_op.v $(RTL)/lm32_mc_arithmetic.v
 SOURCES += $(RTL)/lm32_multiplier.v $(RTL)/lm32_ram.v $(RTL)/lm32_shifter.v
+SOURCES += $(RTL)/lm32_itlb.v
 SOURCES += $(RTL)/lm32_top.v
 
 all: tb_lm32_system

@@ -816,7 +816,10 @@ reg [`LM32_WORD_RNG] tlbvaddr;                  // TLBVADDR CSR
 reg [`LM32_WORD_RNG] tlbbadvaddr;               // TLBBADVADDR CSR
 wire [`LM32_WORD_RNG] dtlb_miss_vfn;            // VFN of the missed address
 wire [`LM32_WORD_RNG] itlb_miss_vfn;            // VFN of the missed instruction
+wire itlb_miss_x;                               // Indicates if an ITLB miss has occured in the X stage
+wire itlb_stall_request;                        // Stall pipeline because instruction TLB is busy
 
+wire itlb_miss_exception;                       // Indicates if an ITLB miss exception has occured
 wire itlb_exception;                            // Indicates if an ITLB exception has occured
 wire dtlb_exception;                            // Indicates if a DTLB exception has occured
 `endif
@@ -877,6 +880,14 @@ lm32_instruction_unit #(
     .dcache_refill_request  (dcache_refill_request),
     .dcache_refilling       (dcache_refilling),
 `endif
+`ifdef CFG_MMU_ENABLED
+    .itlb_enable            (itlbe),
+    .tlbpaddr               (tlbpaddr),
+    .tlbvaddr               (tlbvaddr),
+    .itlb_update            (itlb_update),
+    .itlb_flush             (itlb_flush),
+    .itlb_invalidate        (itlb_invalidate),
+`endif
 `ifdef CFG_IWB_ENABLED
     // From Wishbone
     .i_dat_i                (I_DAT_I),
@@ -904,6 +915,11 @@ lm32_instruction_unit #(
 `endif
 `ifdef CFG_IROM_ENABLED
     .irom_data_m            (irom_data_m),
+`endif
+`ifdef CFG_MMU_ENABLED
+    .itlb_stall_request     (itlb_stall_request),
+    .itlb_miss_vfn          (itlb_miss_vfn),
+    .itlb_miss_x            (itlb_miss_x),
 `endif
 `ifdef CFG_IWB_ENABLED
     // To Wishbone
@@ -1707,6 +1723,9 @@ assign kill_f =    (   (valid_d == `TRUE)
 `ifdef CFG_DCACHE_ENABLED
                 || (dcache_refill_request == `TRUE)
 `endif
+`ifdef CFG_MMU_ENABLED
+                || (itlb_miss_exception == `TRUE)
+`endif
                 ;
 assign kill_d =    (branch_taken_m == `TRUE)
 `ifdef CFG_FAST_UNCONDITIONAL_BRANCH
@@ -1717,6 +1736,9 @@ assign kill_d =    (branch_taken_m == `TRUE)
 `endif
 `ifdef CFG_DCACHE_ENABLED
                 || (dcache_refill_request == `TRUE)
+`endif
+`ifdef CFG_MMU_ENABLED
+                || (itlb_miss_exception == `TRUE)
 `endif
                 ;
 assign kill_x =    (branch_flushX_m == `TRUE)
@@ -1773,6 +1795,14 @@ assign system_call_exception = (   (scall_x == `TRUE)
 `endif
                                );
 
+`ifdef CFG_MMU_ENABLED
+assign itlb_miss_exception = (   (itlb_miss_x == `TRUE)
+                              && (itlbe == `TRUE)
+                              && (valid_x == `TRUE)
+                            );
+assign itlb_exception = (itlb_miss_exception == `TRUE);
+`endif
+
 `ifdef CFG_DEBUG_ENABLED
 assign debug_exception_x =  (breakpoint_exception == `TRUE)
                          || (watchpoint_exception == `TRUE)
@@ -1800,6 +1830,9 @@ assign non_debug_exception_x = (system_call_exception == `TRUE)
 `endif
                                )
 `endif
+`ifdef CFG_MMU_ENABLED
+                            || (itlb_exception == `TRUE)
+`endif
                             ;
 
 assign exception_x = (debug_exception_x == `TRUE) || (non_debug_exception_x == `TRUE);
@@ -1822,6 +1855,9 @@ assign exception_x =           (system_call_exception == `TRUE)
                                 && (D_CYC_O == `FALSE)
 `endif
                                )
+`endif
+`ifdef CFG_MMU_ENABLED
+                            || (itlb_exception == `TRUE)
 `endif
                             ;
 `endif
@@ -1871,6 +1907,11 @@ begin
         eid_x = `LM32_EID_INTERRUPT;
     else
 `endif
+`ifdef CFG_MMU_ENABLED
+         if (itlb_miss_exception == `TRUE)
+        eid_x = `LM32_EID_ITLB_MISS;
+    else
+`endif
         eid_x = `LM32_EID_SCALL;
 end
 
@@ -1878,7 +1919,19 @@ end
 
 assign stall_a = (stall_f == `TRUE);
 
-assign stall_f = (stall_d == `TRUE);
+assign stall_f =   (stall_d == `TRUE)
+`ifdef CFG_MMU_ENABLED
+                // We need to stall for one cycle. Otherwise the icache
+                // starts one cycle earlier and the restart address will be
+                // wrong in case of a miss, that is one instruction is
+                // skipped.
+                || (   (itlbe == `TRUE)
+                    && (   (debug_exception_q_w == `TRUE)
+                        || (non_debug_exception_q_w == `TRUE)
+                       )
+                   )
+`endif
+                ;
 
 assign stall_d =   (stall_x == `TRUE)
                 || (   (interlock == `TRUE)
@@ -1975,6 +2028,9 @@ assign stall_m =    (stall_wb_load == `TRUE)
                  || (   (user_valid == `TRUE)           // Stall whole pipeline, rather than just X stage, where the instruction is, so we don't have to worry about exceptions (maybe)
                      && (user_complete == `FALSE)
                     )
+`endif
+`ifdef CFG_MMU_ENABLED
+                 || (itlb_stall_request == `TRUE)       // ITLB is busy
 `endif
                  ;
 

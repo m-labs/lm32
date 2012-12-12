@@ -91,6 +91,9 @@ module lm32_icache (
     stall_f,
     address_a,
     address_f,
+`ifdef CFG_MMU_ENABLED
+    physical_address_f,
+`endif
     read_enable_f,
     refill_ready,
     refill_data,
@@ -105,6 +108,9 @@ module lm32_icache (
     restart_request,
     refill_request,
     refill_address,
+`ifdef CFG_MMU_ENABLED
+    physical_refill_address,
+`endif
     refilling,
     inst
     );
@@ -125,7 +131,11 @@ localparam addr_offset_lsb = 2;
 localparam addr_offset_msb = (addr_offset_lsb+addr_offset_width-1);
 localparam addr_set_lsb = (addr_offset_msb+1);
 localparam addr_set_msb = (addr_set_lsb+addr_set_width-1);
+`ifdef CFG_MMU_ENABLED
+localparam addr_tag_lsb = (addr_offset_msb+1);
+`else
 localparam addr_tag_lsb = (addr_set_msb+1);
+`endif
 localparam addr_tag_msb = `CLOG2(`CFG_ICACHE_LIMIT-`CFG_ICACHE_BASE_ADDRESS);
 localparam addr_tag_width = (addr_tag_msb-addr_tag_lsb+1);
 
@@ -144,6 +154,9 @@ input branch_predict_taken_d;                       // Instruction in D stage is
 
 input [`LM32_PC_RNG] address_a;                     // Address of instruction in A stage
 input [`LM32_PC_RNG] address_f;                     // Address of instruction in F stage
+`ifdef CFG_MMU_ENABLED
+input [`LM32_PC_RNG] physical_address_f;            // Physical address of instruction in F stage
+`endif
 input read_enable_f;                                // Indicates if cache access is valid
 
 input refill_ready;                                 // Next word of refill data is ready
@@ -166,6 +179,10 @@ output refill_request;                              // Request to refill a cache
 wire   refill_request;
 output [`LM32_PC_RNG] refill_address;               // Base address of cache refill
 reg    [`LM32_PC_RNG] refill_address;
+`ifdef CFG_MMU_ENABLED
+output [`LM32_PC_RNG] physical_refill_address;      // Physical base address of cache refill
+reg    [`LM32_PC_RNG] physical_refill_address;
+`endif
 output refilling;                                   // Indicates the instruction cache is currently refilling
 reg    refilling;
 output [`LM32_INSTRUCTION_RNG] inst;                // Instruction read from cache
@@ -270,7 +287,12 @@ endgenerate
 generate
     for (i = 0; i < associativity; i = i + 1)
     begin : match
-assign way_match[i] = ({way_tag[i], way_valid[i]} == {address_f[`LM32_IC_ADDR_TAG_RNG], `TRUE});
+assign way_match[i] =
+`ifdef CFG_MMU_ENABLED
+        ({way_tag[i], way_valid[i]} == {physical_address_f[`LM32_IC_ADDR_TAG_RNG], `TRUE});
+`else
+        ({way_tag[i], way_valid[i]} == {address_f[`LM32_IC_ADDR_TAG_RNG], `TRUE});
+`endif
     end
 endgenerate
 
@@ -328,7 +350,12 @@ endgenerate
 
 // On the last refill cycle set the valid bit, for all other writes it should be cleared
 assign tmem_write_data[`LM32_IC_TAGS_VALID_RNG] = last_refill & !flushing;
-assign tmem_write_data[`LM32_IC_TAGS_TAG_RNG] = refill_address[`LM32_IC_ADDR_TAG_RNG];
+assign tmem_write_data[`LM32_IC_TAGS_TAG_RNG] =
+`ifdef CFG_MMU_ENABLED
+       physical_refill_address[`LM32_IC_ADDR_TAG_RNG];
+`else
+       refill_address[`LM32_IC_ADDR_TAG_RNG];
+`endif
 
 // Signals that indicate which state we are in
 assign flushing = |state[1:0];
@@ -377,6 +404,9 @@ begin
         state <= `LM32_IC_STATE_FLUSH_INIT;
         flush_set <= {`LM32_IC_TMEM_ADDR_WIDTH{1'b1}};
         refill_address <= {`LM32_PC_WIDTH{1'bx}};
+`ifdef CFG_MMU_ENABLED
+        physical_refill_address <= {`LM32_PC_WIDTH{1'bx}};
+`endif
         restart_request <= `FALSE;
     end
     else
@@ -412,12 +442,22 @@ begin
                 restart_request <= `FALSE;
             if (iflush == `TRUE)
             begin
+`ifdef CFG_MMU_ENABLED
+                physical_refill_address <= physical_address_f;
                 refill_address <= address_f;
+`else
+                refill_address <= address_f;
+`endif
                 state <= `LM32_IC_STATE_FLUSH;
             end
             else if (miss == `TRUE)
             begin
+`ifdef CFG_MMU_ENABLED
+                physical_refill_address <= physical_address_f;
                 refill_address <= address_f;
+`else
+                refill_address <= address_f;
+`endif
                 state <= `LM32_IC_STATE_REFILL;
             end
         end

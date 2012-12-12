@@ -115,6 +115,14 @@ module lm32_instruction_unit (
     irom_address_xm,
     irom_we_xm,
 `endif
+`ifdef CFG_MMU_ENABLED
+    itlb_enable,
+    tlbpaddr,
+    tlbvaddr,
+    itlb_update,
+    itlb_flush,
+    itlb_invalidate,
+`endif
 `ifdef CFG_IWB_ENABLED
     // From Wishbone
     i_dat_i,
@@ -142,6 +150,11 @@ module lm32_instruction_unit (
 `endif
 `ifdef CFG_IROM_ENABLED
     irom_data_m,
+`endif
+`ifdef CFG_MMU_ENABLED
+    itlb_stall_request,
+    itlb_miss_vfn,
+    itlb_miss_x,
 `endif
 `ifdef CFG_IWB_ENABLED
     // To Wishbone
@@ -232,6 +245,15 @@ input [`LM32_WORD_RNG] irom_address_xm;                 // Address from load-sto
 input irom_we_xm;                                       // Indicates if memory operation is load or store
 `endif
 
+`ifdef CFG_MMU_ENABLED
+input itlb_enable;                                      // Instruction TLB enable
+input [`LM32_WORD_RNG] tlbpaddr;                        // TLBPADDR CSR
+input [`LM32_WORD_RNG] tlbvaddr;                        // TLBVADDR CSR
+input itlb_update;                                      // Instruction TLB update request
+input itlb_flush;                                       // Instruction TLB flush request
+input itlb_invalidate;                                  // Instruction TLB invalidate request
+`endif
+
 `ifdef CFG_IWB_ENABLED
 input [`LM32_WORD_RNG] i_dat_i;                         // Instruction Wishbone interface read data
 input i_ack_i;                                          // Instruction Wishbone interface acknowledgement
@@ -274,6 +296,15 @@ wire   icache_refilling;
 `ifdef CFG_IROM_ENABLED
 output [`LM32_WORD_RNG] irom_data_m;                    // Data to load-store unit on load
 wire   [`LM32_WORD_RNG] irom_data_m;
+`endif
+
+`ifdef CFG_MMU_ENABLED
+output itlb_stall_request;                              // Instruction TLB stall request
+wire   itlb_stall_request;
+output [`LM32_WORD_RNG] itlb_miss_vfn;                  // Virtual frame number of missed instruction
+wire   [`LM32_WORD_RNG] itlb_miss_vfn;
+output itlb_miss_x;                                     // Indicates if an instruction TLB miss occured in X stage
+wire   itlb_miss_x;
 `endif
 
 `ifdef CFG_IWB_ENABLED
@@ -340,6 +371,9 @@ reg [`LM32_PC_RNG] restart_address;                     // Address to restart fr
 `ifdef CFG_ICACHE_ENABLED
 wire icache_read_enable_f;                              // Indicates if instruction cache miss is valid
 wire [`LM32_PC_RNG] icache_refill_address;              // Address that caused cache miss
+`ifdef CFG_MMU_ENABLED
+wire [`LM32_PC_RNG] icache_physical_refill_address;     // Physical address that caused cache miss
+`endif
 reg icache_refill_ready;                                // Indicates when next word of refill data is ready to be written to cache
 reg [`LM32_INSTRUCTION_RNG] icache_refill_data;         // Next word of refill data, fetched from Wishbone
 wire [`LM32_INSTRUCTION_RNG] icache_data_f;             // Instruction fetched from instruction cache
@@ -371,6 +405,11 @@ reg jtag_access;                                        // Indicates if a JTAG W
 
 `ifdef CFG_ALTERNATE_EBA
 reg alternate_eba_taken;
+`endif
+
+`ifdef CFG_MMU_ENABLED
+wire [`LM32_PC_RNG] physical_pc_f;                      // F stage physical PC
+wire itlb_miss_f;                                       // Indicates if an instruction TLB miss occured in F stage
 `endif
 
 /////////////////////////////////////////////////////
@@ -448,6 +487,9 @@ lm32_icache #(
     .valid_d                (valid_d),
     .address_a              (pc_a),
     .address_f              (pc_f),
+`ifdef CFG_MMU_ENABLED
+    .physical_address_f     (physical_pc_f),
+`endif
     .read_enable_f          (icache_read_enable_f),
     .refill_ready           (icache_refill_ready),
     .refill_data            (icache_refill_data),
@@ -457,8 +499,40 @@ lm32_icache #(
     .restart_request        (icache_restart_request),
     .refill_request         (icache_refill_request),
     .refill_address         (icache_refill_address),
+`ifdef CFG_MMU_ENABLED
+    .physical_refill_address(icache_physical_refill_address),
+`endif
     .refilling              (icache_refilling),
     .inst                   (icache_data_f)
+    );
+`endif
+
+`ifdef CFG_MMU_ENABLED
+// Instruction TLB
+lm32_itlb itlb (
+    // ----- Inputs -----
+    .clk_i                  (clk_i),
+    .rst_i                  (rst_i),
+    .enable                 (itlb_enable),
+    .stall_a                (stall_a),
+    .stall_f                (stall_f),
+    .stall_d                (stall_d),
+    .stall_x                (stall_x),
+    .pc_a                   (pc_a),
+    .pc_f                   (pc_f),
+    .pc_x                   (pc_x),
+    .read_enable_f          (icache_read_enable_f),
+    .tlbpaddr               (tlbpaddr),
+    .tlbvaddr               (tlbvaddr),
+    .update                 (itlb_update),
+    .flush                  (itlb_flush),
+    .invalidate             (itlb_invalidate),
+    // ----- Outputs -----
+    .physical_pc_f          (physical_pc_f),
+    .stall_request          (itlb_stall_request),
+    .miss_vfn               (itlb_miss_vfn),
+    .miss_f                 (itlb_miss_f),
+    .miss_x                 (itlb_miss_x)
     );
 `endif
 
@@ -475,6 +549,9 @@ assign icache_read_enable_f =    (valid_f == `TRUE)
 `endif
 `ifdef CFG_IROM_ENABLED
                               && (irom_select_f == `FALSE)
+`endif
+`ifdef CFG_MMU_ENABLED
+                              && (itlb_miss_f == `FALSE)
 `endif
                               ;
 `endif
@@ -553,21 +630,33 @@ generate
 assign first_cycle_type = `LM32_CTYPE_END;
 assign next_cycle_type = `LM32_CTYPE_END;
 assign last_word = `TRUE;
+`ifdef CFG_MMU_ENABLED
+assign first_address = icache_physical_refill_address;
+`else
 assign first_address = icache_refill_address;
+`endif
     end
     8:
     begin
 assign first_cycle_type = `LM32_CTYPE_INCREMENTING;
 assign next_cycle_type = `LM32_CTYPE_END;
 assign last_word = i_adr_o[addr_offset_msb:addr_offset_lsb] == 1'b1;
+`ifdef CFG_MMU_ENABLED
+assign first_address = {icache_physical_refill_address[`LM32_PC_WIDTH+2-1:addr_offset_msb+1], {addr_offset_width{1'b0}}};
+`else
 assign first_address = {icache_refill_address[`LM32_PC_WIDTH+2-1:addr_offset_msb+1], {addr_offset_width{1'b0}}};
+`endif
     end
     default:
     begin
 assign first_cycle_type = `LM32_CTYPE_INCREMENTING;
 assign next_cycle_type = i_adr_o[addr_offset_msb:addr_offset_lsb+1] == {addr_offset_width-1{1'b1}} ? `LM32_CTYPE_END : `LM32_CTYPE_INCREMENTING;
 assign last_word = (&i_adr_o[addr_offset_msb:addr_offset_lsb]) == 1'b1;
+`ifdef CFG_MMU_ENABLED
+assign first_address = {icache_physical_refill_address[`LM32_PC_WIDTH+2-1:addr_offset_msb+1], {addr_offset_width{1'b0}}};
+`else
 assign first_address = {icache_refill_address[`LM32_PC_WIDTH+2-1:addr_offset_msb+1], {addr_offset_width{1'b0}}};
+`endif
     end
     endcase
 endgenerate

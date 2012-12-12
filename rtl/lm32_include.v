@@ -263,7 +263,7 @@
 `define LM32_TLB_OP_INVALIDATE          2'h2
 
 // Exception IDs
-`define LM32_EID_WIDTH                  3
+`define LM32_EID_WIDTH                  4
 `define LM32_EID_RNG                    (`LM32_EID_WIDTH-1):0
 `define LM32_EID_RESET                  `LM32_EID_WIDTH'h0
 `define LM32_EID_BREAKPOINT             `LM32_EID_WIDTH'h1
@@ -273,6 +273,7 @@
 `define LM32_EID_DIVIDE_BY_ZERO         `LM32_EID_WIDTH'h5
 `define LM32_EID_INTERRUPT              `LM32_EID_WIDTH'h6
 `define LM32_EID_SCALL                  `LM32_EID_WIDTH'h7
+`define LM32_EID_ITLB_MISS              `LM32_EID_WIDTH'h8
 
 // Exception Base Address
 `define LM32_EBA_WIDTH                  (`LM32_PC_WIDTH-`LM32_EID_WIDTH-3)
