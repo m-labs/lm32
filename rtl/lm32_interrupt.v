@@ -171,6 +171,9 @@ generate
 always @(*)
 begin
     case (csr)
+`ifdef CFG_MMU_ENABLED
+    `LM32_CSR_PSW,
+`endif
     `LM32_CSR_IE:  csr_read_data = {{`LM32_WORD_WIDTH-3{1'b0}},
 `ifdef CFG_DEBUG_ENABLED
                                     bie,
@@ -266,7 +269,11 @@ begin
             else if (csr_write_enable == `TRUE)
             begin
                 // Handle wcsr write
-                if (csr == `LM32_CSR_IE)
+                if (   (csr == `LM32_CSR_IE)
+`ifdef CFG_MMU_ENABLED
+                    || (csr == `LM32_CSR_PSW)
+`endif
+                   )
                 begin
                     ie <= csr_write_data[0];
                     eie <= csr_write_data[1];
@@ -335,7 +342,11 @@ begin
             else if (csr_write_enable == `TRUE)
             begin
                 // Handle wcsr write
-                if (csr == `LM32_CSR_IE)
+                if (   (csr == `LM32_CSR_IE)
+`ifdef CFG_MMU_ENABLED
+                    || (csr == `LM32_CSR_PSW)
+`endif
+                   )
                 begin
                     ie <= csr_write_data[0];
                     eie <= csr_write_data[1];

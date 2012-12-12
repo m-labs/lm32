@@ -624,6 +624,9 @@ wire [`LM32_WORD_RNG] interrupt_csr_read_data_x;// Data read from interrupt CSRs
 `endif
 wire [`LM32_WORD_RNG] cfg;                      // Configuration CSR
 wire [`LM32_WORD_RNG] cfg2;                     // Extended Configuration CSR
+`ifdef CFG_MMU_ENABLED
+wire [`LM32_WORD_RNG] psw;                      // Processor Status Word CSR
+`endif
 `ifdef CFG_CYCLE_COUNTER_ENABLED
 reg [`LM32_WORD_RNG] cc;                        // Cycle counter CSR
 `endif
@@ -781,6 +784,18 @@ reg ext_break_r;
 `endif
 
 `ifdef CFG_MMU_ENABLED
+reg itlbe;                                      // Instruction TLB enable
+reg dtlbe;                                      // Data TLB enable
+reg usr;                                        // User mode
+reg eitlbe;                                     // Exception instruction enable
+reg edtlbe;                                     // Exception data TLB enable
+reg eusr;                                       // Exception user mode
+`ifdef CFG_DEBUG_ENABLED
+reg bitlbe;                                     // Breakpoint instruction TLB enable
+reg bdtlbe;                                     // Breakpoint data TLB enable
+reg busr;                                       // Breakpoint user mode
+`endif
+
 reg itlb_invalidate;                            // Invalidate an ITLB entry
 reg itlb_flush;                                 // Flush all ITLB entries
 reg itlb_update;                                // Update an ITLB entry
@@ -2088,6 +2103,34 @@ assign cfg2 = {
 `endif
                };
 
+`ifdef CFG_MMU_ENABLED
+assign psw = {
+              {`LM32_WORD_WIDTH-12{1'b0}},
+`ifdef CFG_DEBUG_ENABLED
+              busr,
+`else
+              `FALSE,
+`endif
+              eusr,
+              usr,
+`ifdef CFG_DEBUG_ENABLED
+              bdtlbe,
+`else
+              `FALSE,
+`endif
+              edtlbe,
+              dtlbe,
+`ifdef CFG_DEBUG_ENABLED
+              bitlbe,
+`else
+              `FALSE,
+`endif
+              eitlbe,
+              itlbe,
+              interrupt_csr_read_data_x[2:0]
+              };
+`endif
+
 // Cache flush
 `ifdef CFG_ICACHE_ENABLED
 assign iflush = (   (csr_write_enable_d == `TRUE)
@@ -2141,6 +2184,7 @@ begin
 `endif
     `LM32_CSR_CFG2: csr_read_data_x = cfg2;
 `ifdef CFG_MMU_ENABLED
+    `LM32_CSR_PSW:  csr_read_data_x = psw;
     `LM32_CSR_TLBVADDR: csr_read_data_x = tlbvaddr;
     `LM32_CSR_TLBBADVADDR: csr_read_data_x = tlbbadvaddr;
 `endif
@@ -2154,6 +2198,100 @@ end
 /////////////////////////////////////////////////////
 
 `ifdef CFG_MMU_ENABLED
+// Processor status word (PSW) handling
+always @(posedge clk_i `CFG_RESET_SENSITIVITY)
+begin
+    if (rst_i)
+    begin
+        itlbe <= `FALSE;
+        eitlbe <= `FALSE;
+        dtlbe <= `FALSE;
+        edtlbe <= `FALSE;
+        usr <= `FALSE;
+        eusr <= `FALSE;
+`ifdef CFG_DEBUG_ENABLED
+        bitlbe <= `FALSE;
+        bdtlbe <= `FALSE;
+        busr <= `FALSE;
+`endif
+    end
+    else
+    begin
+`ifdef CFG_DEBUG_ENABLED
+        if (non_debug_exception_q_w == `TRUE)
+        begin
+            // Save and then clear ITLB and DTLB enable
+            eitlbe <= itlbe;
+            itlbe <= `FALSE;
+            edtlbe <= dtlbe;
+            dtlbe <= `FALSE;
+            eusr <= usr;
+            usr <= `FALSE;
+        end
+        else if (debug_exception_q_w == `TRUE)
+        begin
+            // Save and then clear TLB enable
+            bitlbe <= itlbe;
+            itlbe <= `FALSE;
+            bdtlbe <= dtlbe;
+            dtlbe <= `FALSE;
+            busr <= usr;
+            usr <= `FALSE;
+        end
+`else
+        if (exception_q_w == `TRUE)
+        begin
+            // Save and then clear ITLB and DTLB enable
+            eitlbe <= itlbe;
+            itlbe <= `FALSE;
+            edtlbe <= dtlbe;
+            dtlbe <= `FALSE;
+            eusr <= usr;
+            usr <= `FALSE;
+        end
+`endif
+
+        else if (stall_x == `FALSE)
+        begin
+            if (eret_q_x == `TRUE)
+            begin
+                // Restore ITLB and DTLB enable
+                itlbe <= eitlbe;
+                dtlbe <= edtlbe;
+                usr <= eusr;
+            end
+`ifdef CFG_DEBUG_ENABLED
+            else if (bret_q_x == `TRUE)
+            begin
+                // Restore ITLB and DTLB enable
+                itlbe <= bitlbe;
+                dtlbe <= bdtlbe;
+                usr <= busr;
+            end
+`endif
+            else if (csr_write_enable_q_x == `TRUE)
+            begin
+                // Handle wcsr write
+                if (csr_x == `LM32_CSR_PSW)
+                begin
+                    // ie, eie and bie are shadowed from IE register
+                    itlbe  <= operand_1_x[3];
+                    eitlbe <= operand_1_x[4];
+                    dtlbe  <= operand_1_x[6];
+                    edtlbe <= operand_1_x[7];
+                    usr    <= operand_1_x[9];
+                    eusr   <= operand_1_x[10];
+`ifdef CFG_DEBUG_ENABLED
+                    bitlbe <= operand_1_x[5];
+                    bdtlbe <= operand_1_x[8];
+                    busr   <= operand_1_x[11];
+`endif
+                end
+            end
+        end
+    end
+end
+
 // TLBVADDR CSR
 always @(posedge clk_i `CFG_RESET_SENSITIVITY)
 begin

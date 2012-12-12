@@ -243,6 +243,7 @@
 `define LM32_CSR_WP1                    `LM32_CSR_WIDTH'h19
 `define LM32_CSR_WP2                    `LM32_CSR_WIDTH'h1a
 `define LM32_CSR_WP3                    `LM32_CSR_WIDTH'h1b
+`define LM32_CSR_PSW                    `LM32_CSR_WIDTH'h1d
 `define LM32_CSR_TLBVADDR               `LM32_CSR_WIDTH'h1e
 `define LM32_CSR_TLBPADDR               `LM32_CSR_WIDTH'h1f  // write only
 `define LM32_CSR_TLBBADVADDR            `LM32_CSR_WIDTH'h1f  // read only
