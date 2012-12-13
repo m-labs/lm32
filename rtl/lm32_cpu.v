@@ -2972,7 +2972,9 @@ begin
 `ifdef CFG_BUS_ERRORS_ENABLED
             data_bus_error_exception_m <=    (data_bus_error_exception == `TRUE)
 `ifdef CFG_DEBUG_ENABLED
+`ifdef CFG_JTAG_ENABLED
                                           && (reset_exception == `FALSE)
+`endif
 `endif
                                           ;
 `endif
