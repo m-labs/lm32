@@ -228,7 +228,7 @@ wire   dcache_refilling;
 `endif
 
 `ifdef CFG_IROM_ENABLED
-output irom_store_data_m;                               // Store data to Instruction ROM
+output [`LM32_WORD_RNG] irom_store_data_m;              // Store data to Instruction ROM
 wire   [`LM32_WORD_RNG] irom_store_data_m;
 output [`LM32_WORD_RNG] irom_address_xm;                // Load/store address to Instruction ROM
 wire   [`LM32_WORD_RNG] irom_address_xm;

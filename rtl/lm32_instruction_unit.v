@@ -422,51 +422,29 @@ wire itlb_miss_f;                                       // Indicates if an instr
 
 // Instruction ROM
 `ifdef CFG_IROM_ENABLED
-   pmi_ram_dp_true
-     #(
-       // ----- Parameters -------
-       .pmi_family             (`LATTICE_FAMILY),
+`define LM32_IROM_WIDTH `CLOG2(`CFG_IROM_LIMIT/4-`CFG_IROM_BASE_ADDRESS/4+1)
+`define LM32_IROM_RNG (`LM32_IROM_WIDTH-1+2):2
 
-       //.pmi_addr_depth_a       (1 << `CLOG2(`CFG_IROM_LIMIT/4-`CFG_IROM_BASE_ADDRESS/4+1)),
-       //.pmi_addr_width_a       (`CLOG2(`CFG_IROM_LIMIT/4-`CFG_IROM_BASE_ADDRESS/4+1)),
-       //.pmi_data_width_a       (`LM32_WORD_WIDTH),
-       //.pmi_addr_depth_b       (1 << `CLOG2(`CFG_IROM_LIMIT/4-`CFG_IROM_BASE_ADDRESS/4+1)),
-       //.pmi_addr_width_b       (`CLOG2(`CFG_IROM_LIMIT/4-`CFG_IROM_BASE_ADDRESS/4+1)),
-       //.pmi_data_width_b       (`LM32_WORD_WIDTH),
-
-       .pmi_addr_depth_a       (`CFG_IROM_LIMIT/4-`CFG_IROM_BASE_ADDRESS/4+1),
-       .pmi_addr_width_a       (`CLOG2(`CFG_IROM_LIMIT/4-`CFG_IROM_BASE_ADDRESS/4+1)),
-       .pmi_data_width_a       (`LM32_WORD_WIDTH),
-       .pmi_addr_depth_b       (`CFG_IROM_LIMIT/4-`CFG_IROM_BASE_ADDRESS/4+1),
-       .pmi_addr_width_b       (`CLOG2(`CFG_IROM_LIMIT/4-`CFG_IROM_BASE_ADDRESS/4+1)),
-       .pmi_data_width_b       (`LM32_WORD_WIDTH),
-
-       .pmi_regmode_a          ("noreg"),
-       .pmi_regmode_b          ("noreg"),
-       .pmi_gsr                ("enable"),
-       .pmi_resetmode          ("sync"),
-       .pmi_init_file          (`CFG_IROM_INIT_FILE),
-       .pmi_init_file_format   (`CFG_IROM_INIT_FILE_FORMAT),
-       .module_type            ("pmi_ram_dp_true")
-       )
-       ram (
-            // ----- Inputs -------
-            .ClockA                 (clk_i),
-            .ClockB                 (clk_i),
-            .ResetA                 (rst_i),
-            .ResetB                 (rst_i),
-            .DataInA                ({32{1'b0}}),
-            .DataInB                (irom_store_data_m),
-            .AddressA               (pc_a[`CLOG2(`CFG_IROM_LIMIT/4-`CFG_IROM_BASE_ADDRESS/4+1)+2-1:2]),
-            .AddressB               (irom_address_xm[`CLOG2(`CFG_IROM_LIMIT/4-`CFG_IROM_BASE_ADDRESS/4+1)+2-1:2]),
-            .ClockEnA               (!stall_a),
-            .ClockEnB               (!stall_x || !stall_m),
-            .WrA                    (`FALSE),
-            .WrB                    (irom_we_xm),
-            // ----- Outputs -------
-            .QA                     (irom_data_f),
-            .QB                     (irom_data_m)
-            );
+lm32_dp_ram #(
+    .data_width    (`LM32_WORD_WIDTH),
+    .address_width (`LM32_IROM_WIDTH),
+    .init_file     (`CFG_IROM_INIT_FILE)
+  ) ram (
+    // ----- Inputs -------
+    .clk_a         (clk_i),
+    .clk_b         (clk_i),
+    .ce_a          (!stall_a),
+    .ce_b          (!stall_x || !stall_m),
+    .addr_a        (pc_a[`LM32_IROM_RNG]),
+    .addr_b        (irom_address_xm[`LM32_IROM_RNG]),
+    .di_a          ({32{1'b0}}),
+    .di_b          (irom_store_data_m),
+    .we_a          (`FALSE),
+    .we_b          (irom_we_xm),
+    // ----- Outputs -------
+    .do_a          (irom_data_f),
+    .do_b          (irom_data_m)
+    );
 `endif
 
 `ifdef CFG_ICACHE_ENABLED
