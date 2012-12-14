@@ -331,53 +331,28 @@ wire cache_inhibit_x;                                   // Indicates if data cac
 /////////////////////////////////////////////////////
 
 `ifdef CFG_DRAM_ENABLED
-   // Data RAM
-   pmi_ram_dp_true
-     #(
-       // ----- Parameters -------
-       .pmi_family             (`LATTICE_FAMILY),
+`define LM32_DRAM_WIDTH `CLOG2(`CFG_DRAM_LIMIT/4-`CFG_DRAM_BASE_ADDRESS/4+1)
+`define LM32_DRAM_RNG (`LM32_DRAM_WIDTH-1+2):2
 
-       //.pmi_addr_depth_a       (1 << `CLOG2(`CFG_DRAM_LIMIT/4-`CFG_DRAM_BASE_ADDRESS/4+1)),
-       //.pmi_addr_width_a       (`CLOG2(`CFG_DRAM_LIMIT/4-`CFG_DRAM_BASE_ADDRESS/4+1)),
-       //.pmi_data_width_a       (`LM32_WORD_WIDTH),
-       //.pmi_addr_depth_b       (1 << `CLOG2(`CFG_DRAM_LIMIT/4-`CFG_DRAM_BASE_ADDRESS/4+1)),
-       //.pmi_addr_width_b       (`CLOG2(`CFG_DRAM_LIMIT/4-`CFG_DRAM_BASE_ADDRESS/4+1)),
-       //.pmi_data_width_b       (`LM32_WORD_WIDTH),
-
-       .pmi_addr_depth_a       (`CFG_DRAM_LIMIT/4-`CFG_DRAM_BASE_ADDRESS/4+1),
-       .pmi_addr_width_a       (`CLOG2(`CFG_DRAM_LIMIT/4-`CFG_DRAM_BASE_ADDRESS/4+1)),
-       .pmi_data_width_a       (`LM32_WORD_WIDTH),
-       .pmi_addr_depth_b       (`CFG_DRAM_LIMIT/4-`CFG_DRAM_BASE_ADDRESS/4+1),
-       .pmi_addr_width_b       (`CLOG2(`CFG_DRAM_LIMIT/4-`CFG_DRAM_BASE_ADDRESS/4+1)),
-       .pmi_data_width_b       (`LM32_WORD_WIDTH),
-
-       .pmi_regmode_a          ("noreg"),
-       .pmi_regmode_b          ("noreg"),
-       .pmi_gsr                ("enable"),
-       .pmi_resetmode          ("sync"),
-       .pmi_init_file          (`CFG_DRAM_INIT_FILE),
-       .pmi_init_file_format   (`CFG_DRAM_INIT_FILE_FORMAT),
-       .module_type            ("pmi_ram_dp_true")
-       )
-       ram (
-            // ----- Inputs -------
-            .ClockA                 (clk_i),
-            .ClockB                 (clk_i),
-            .ResetA                 (rst_i),
-            .ResetB                 (rst_i),
-            .DataInA                ({32{1'b0}}),
-            .DataInB                (dram_store_data_m),
-            .AddressA               (load_store_address_x[`CLOG2(`CFG_DRAM_LIMIT/4-`CFG_DRAM_BASE_ADDRESS/4+1)+2-1:2]),
-            .AddressB               (load_store_address_m[`CLOG2(`CFG_DRAM_LIMIT/4-`CFG_DRAM_BASE_ADDRESS/4+1)+2-1:2]),
-            // .ClockEnA               (!stall_x & (load_x | store_x)),
-            .ClockEnA               (!stall_x),
-            .ClockEnB               (!stall_m),
-            .WrA                    (`FALSE),
-            .WrB                    (store_q_m & dram_select_m),
-            // ----- Outputs -------
-            .QA                     (dram_data_out),
-            .QB                     ()
-            );
+// Data RAM
+lm32_ram #(
+    .data_width    (`LM32_WORD_WIDTH),
+    .address_width (`LM32_DRAM_WIDTH),
+    .init_file     (`CFG_DRAM_INIT_FILE)
+  ) ram (
+    // ----- Inputs -------
+    .read_clk      (clk_i),
+    .write_clk     (clk_i),
+    .reset         (rst_i),
+    .enable_read   (!stall_x),
+    .read_address  (load_store_address_x[`LM32_DRAM_RNG]),
+    .enable_write  (!stall_m),
+    .write_address (load_store_address_m[`LM32_DRAM_RNG]),
+    .write_data    (dram_store_data_m),
+    .write_enable  (store_q_m & dram_select_m),
+    // ----- Outputs -------
+    .read_data     (dram_data_out)
+    );
 
    /*----------------------------------------------------------------------
     EBRs cannot perform reads from location 'written to' on the same clock

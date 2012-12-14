@@ -1450,70 +1450,46 @@ lm32_debug #(
 `endif
 
 `ifdef CFG_EBR_NEGEDGE_REGISTER_FILE
-   pmi_ram_dp
+   lm32_ram
      #(
-       // ----- Parameters -----
-       .pmi_wr_addr_depth(1<<5),
-       .pmi_wr_addr_width(5),
-       .pmi_wr_data_width(32),
-       .pmi_rd_addr_depth(1<<5),
-       .pmi_rd_addr_width(5),
-       .pmi_rd_data_width(32),
-       .pmi_regmode("noreg"),
-       .pmi_gsr("enable"),
-       .pmi_resetmode("sync"),
-       .pmi_init_file("none"),
-       .pmi_init_file_format("binary"),
-       .pmi_family(`LATTICE_FAMILY),
-       .module_type("pmi_ram_dp")
+       .data_width(32),
+       .address_width(5)
        )
    reg_0
      (
       // ----- Inputs -----
-      .Data(w_result),
-      .WrAddress(write_idx_w),
-      .RdAddress(read_idx_0_d),
-      .WrClock(clk_i),
-      .RdClock(clk_n_i),
-      .WrClockEn(`TRUE),
-      .RdClockEn(stall_f == `FALSE),
-      .WE(reg_write_enable_q_w),
-      .Reset(rst_i),
+      .read_clk      (clk_i),
+      .write_clk     (clk_n_i),
+      .reset         (rst_i),
+      .enable_read   (stall_f == `FALSE),
+      .read_address  (read_idx_0_d),
+      .enable_write  (`TRUE),
+      .write_address (write_idx_w),
+      .write_data    (w_result),
+      .write_enable  (reg_write_enable_q_w),
       // ----- Outputs -----
-      .Q(reg_data_0)
+      .read_data     (reg_data_0)
       );
 
-   pmi_ram_dp
+   lm32_ram
      #(
-       // ----- Parameters -----
-       .pmi_wr_addr_depth(1<<5),
-       .pmi_wr_addr_width(5),
-       .pmi_wr_data_width(32),
-       .pmi_rd_addr_depth(1<<5),
-       .pmi_rd_addr_width(5),
-       .pmi_rd_data_width(32),
-       .pmi_regmode("noreg"),
-       .pmi_gsr("enable"),
-       .pmi_resetmode("sync"),
-       .pmi_init_file("none"),
-       .pmi_init_file_format("binary"),
-       .pmi_family(`LATTICE_FAMILY),
-       .module_type("pmi_ram_dp")
+       .data_width(32),
+       .address_width(5)
        )
    reg_1
      (
       // ----- Inputs -----
-      .Data(w_result),
-      .WrAddress(write_idx_w),
-      .RdAddress(read_idx_1_d),
-      .WrClock(clk_i),
-      .RdClock(clk_n_i),
-      .WrClockEn(`TRUE),
-      .RdClockEn(stall_f == `FALSE),
-      .WE(reg_write_enable_q_w),
-      .Reset(rst_i),
+      .read_clk      (clk_i),
+      .write_clk     (clk_n_i),
+      .reset         (rst_i),
+      .enable_read   (stall_f == `FALSE),
+      .read_address  (read_idx_1_d),
+      .enable_write  (`TRUE),
+      .write_address (write_idx_w),
+      .write_data    (w_result),
+      .write_enable  (reg_write_enable_q_w),
       // ----- Outputs -----
-      .Q(reg_data_1)
+      .read_data     (reg_data_1)
       );
 `endif
 
