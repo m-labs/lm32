@@ -3036,42 +3036,6 @@ end
 // Register file write port
 always @(posedge clk_i `CFG_RESET_SENSITIVITY)
 begin
-    if (rst_i == `TRUE)
-    begin
-        registers[0] <= {`LM32_WORD_WIDTH{1'b0}};
-        registers[1] <= {`LM32_WORD_WIDTH{1'b0}};
-        registers[2] <= {`LM32_WORD_WIDTH{1'b0}};
-        registers[3] <= {`LM32_WORD_WIDTH{1'b0}};
-        registers[4] <= {`LM32_WORD_WIDTH{1'b0}};
-        registers[5] <= {`LM32_WORD_WIDTH{1'b0}};
-        registers[6] <= {`LM32_WORD_WIDTH{1'b0}};
-        registers[7] <= {`LM32_WORD_WIDTH{1'b0}};
-        registers[8] <= {`LM32_WORD_WIDTH{1'b0}};
-        registers[9] <= {`LM32_WORD_WIDTH{1'b0}};
-        registers[10] <= {`LM32_WORD_WIDTH{1'b0}};
-        registers[11] <= {`LM32_WORD_WIDTH{1'b0}};
-        registers[12] <= {`LM32_WORD_WIDTH{1'b0}};
-        registers[13] <= {`LM32_WORD_WIDTH{1'b0}};
-        registers[14] <= {`LM32_WORD_WIDTH{1'b0}};
-        registers[15] <= {`LM32_WORD_WIDTH{1'b0}};
-        registers[16] <= {`LM32_WORD_WIDTH{1'b0}};
-        registers[17] <= {`LM32_WORD_WIDTH{1'b0}};
-        registers[18] <= {`LM32_WORD_WIDTH{1'b0}};
-        registers[19] <= {`LM32_WORD_WIDTH{1'b0}};
-        registers[20] <= {`LM32_WORD_WIDTH{1'b0}};
-        registers[21] <= {`LM32_WORD_WIDTH{1'b0}};
-        registers[22] <= {`LM32_WORD_WIDTH{1'b0}};
-        registers[23] <= {`LM32_WORD_WIDTH{1'b0}};
-        registers[24] <= {`LM32_WORD_WIDTH{1'b0}};
-        registers[25] <= {`LM32_WORD_WIDTH{1'b0}};
-        registers[26] <= {`LM32_WORD_WIDTH{1'b0}};
-        registers[27] <= {`LM32_WORD_WIDTH{1'b0}};
-        registers[28] <= {`LM32_WORD_WIDTH{1'b0}};
-        registers[29] <= {`LM32_WORD_WIDTH{1'b0}};
-        registers[30] <= {`LM32_WORD_WIDTH{1'b0}};
-        registers[31] <= {`LM32_WORD_WIDTH{1'b0}};
-    end
-    else
     begin
         if (reg_write_enable_q_w == `TRUE)
             registers[write_idx_w] <= w_result;
