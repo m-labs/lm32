@@ -585,10 +585,6 @@ wire [`LM32_WORD_RNG] sext_result_x;            // Result of sign-extension spec
 
 // To/from shifter
 `ifdef CFG_PL_BARREL_SHIFT_ENABLED
-`ifdef CFG_ROTATE_ENABLED
-wire rotate_d;                                  // Whether we should rotate or shift
-reg rotate_x;
-`endif
 wire direction_d;                               // Which direction to shift in
 reg direction_x;
 wire [`LM32_WORD_RNG] shifter_result_m;         // Result of shifter
@@ -2721,10 +2717,6 @@ begin
 `ifdef CFG_PL_BARREL_SHIFT_ENABLED
         direction_x <= `FALSE;
 `endif
-`ifdef CFG_ROTATE_ENABLED
-        rotate_x <= `FALSE;
-
-`endif
         branch_x <= `FALSE;
         branch_predict_x <= `FALSE;
         branch_predict_taken_x <= `FALSE;
@@ -2838,9 +2830,6 @@ begin
             logic_op_x <= logic_op_d;
 `ifdef CFG_PL_BARREL_SHIFT_ENABLED
             direction_x <= direction_d;
-`endif
-`ifdef CFG_ROTATE_ENABLED
-            rotate_x <= rotate_d;
 `endif
             condition_x <= condition_d;
             csr_write_enable_x <= csr_write_enable_d;
