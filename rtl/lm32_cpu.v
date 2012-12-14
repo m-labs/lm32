@@ -1405,41 +1405,47 @@ lm32_debug #(
     Register file instantiation as Pseudo-Dual Port EBRs.
     ----------------------------------------------------------------------*/
    // Modified by GSI: removed non-portable RAM instantiation
-   lm32_dp_ram
+   lm32_ram
      #(
        // ----- Parameters -----
-       .addr_width(5),
-       .data_width(32)
+       .data_width(32),
+       .address_width(5)
        )
    reg_0
      (
       // ----- Inputs -----
-      .clk_i    (clk_i),
-      .rst_i    (rst_i),
-      .we_i     (reg_write_enable_q_w),
-      .wdata_i  (w_result),
-      .waddr_i  (write_idx_w),
-      .raddr_i  (instruction_f[25:21]),
+      .read_clk      (clk_i),
+      .write_clk     (clk_i),
+      .reset         (rst_i),
+      .enable_read   (`TRUE),
+      .read_address  (instruction_f[25:21]),
+      .enable_write  (`TRUE),
+      .write_address (write_idx_w),
+      .write_data    (w_result),
+      .write_enable  (reg_write_enable_q_w),
       // ----- Outputs -----
-      .rdata_o  (regfile_data_0)
+      .read_data     (regfile_data_0)
       );
 
-   lm32_dp_ram
+   lm32_ram
      #(
-       .addr_width(5),
-       .data_width(32)
+       .data_width(32),
+       .address_width(5)
        )
    reg_1
      (
       // ----- Inputs -----
-      .clk_i    (clk_i),
-      .rst_i    (rst_i),
-      .we_i     (reg_write_enable_q_w),
-      .wdata_i  (w_result),
-      .waddr_i  (write_idx_w),
-      .raddr_i  (instruction_f[20:16]),
+      .read_clk      (clk_i),
+      .write_clk     (clk_i),
+      .reset         (rst_i),
+      .enable_read   (`TRUE),
+      .read_address  (instruction_f[20:16]),
+      .enable_write  (`TRUE),
+      .write_address (write_idx_w),
+      .write_data    (w_result),
+      .write_enable  (reg_write_enable_q_w),
       // ----- Outputs -----
-      .rdata_o  (regfile_data_1)
+      .read_data     (regfile_data_1)
       );
 `endif
 
