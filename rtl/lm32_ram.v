@@ -78,6 +78,7 @@ module lm32_ram (
  ----------------------------------------------------------------------*/
 parameter data_width = 1;               // Width of the data ports
 parameter address_width = 1;            // Width of the address ports
+parameter init_file = "NONE";           // Initialization file
 
 /*----------------------------------------------------------------------
  Inputs
@@ -124,4 +125,14 @@ always @(posedge read_clk)
     if (enable_read)
         ra <= read_address;
 
+/*----------------------------------------------------------------------
+ Initialization
+ ----------------------------------------------------------------------*/
+generate
+	if (init_file != "NONE")
+	begin
+initial $readmemh(init_file, mem);
+	end
+endgenerate
+	
 endmodule
