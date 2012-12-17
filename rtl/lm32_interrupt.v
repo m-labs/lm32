@@ -93,7 +93,7 @@ parameter interrupts = `CFG_INTERRUPTS;         // Number of interrupts
 input clk_i;                                    // Clock
 input rst_i;                                    // Reset
 
-input [interrupts-1:0] interrupt;               // Interrupt pins, active-low
+input [interrupts-1:0] interrupt;               // Interrupt pins
 
 input stall_x;                                  // Stall X pipeline stage
 
@@ -150,7 +150,7 @@ assign interrupt_n_exception = ip & im;
 // Determine if any unmasked interrupts have occured
 assign interrupt_exception = (|interrupt_n_exception) & ie;
 
-// Determine which interrupts are currently being asserted (active-low) or are already pending
+// Determine which interrupts are currently being asserted or are already pending
 assign asserted = ip | interrupt;
 
 assign ie_csr_read_data = {{`LM32_WORD_WIDTH-3{1'b0}},
