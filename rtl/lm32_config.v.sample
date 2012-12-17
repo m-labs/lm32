@@ -55,6 +55,10 @@
 // Enable support for 32 hardware interrupts
 `define CFG_INTERRUPTS_ENABLED
 
+// Enable level-sensitive interrupts. The interrupt line status is
+// reflected in the IP register, which is then read-only.
+//`define CFG_LEVEL_SENSITIVE_INTERRUPTS
+
 
 //
 // USER INSTRUCTION

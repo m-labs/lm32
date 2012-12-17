@@ -126,8 +126,10 @@ reg    [`LM32_WORD_RNG] csr_read_data;
 // Internal nets and registers
 /////////////////////////////////////////////////////
 
+`ifndef CFG_LEVEL_SENSITIVE_INTERRUPTS
 wire [interrupts-1:0] asserted;                 // Which interrupts are currently being asserted
 //pragma attribute asserted preserve_signal true
+`endif
 wire [interrupts-1:0] interrupt_n_exception;
 
 // Interrupt CSRs
@@ -137,7 +139,11 @@ reg eie;                                        // Exception interrupt enable
 `ifdef CFG_DEBUG_ENABLED
 reg bie;                                        // Breakpoint interrupt enable
 `endif
+`ifdef CFG_LEVEL_SENSITIVE_INTERRUPTS
+wire [interrupts-1:0] ip;                       // Interrupt pending
+`else
 reg [interrupts-1:0] ip;                        // Interrupt pending
+`endif
 reg [interrupts-1:0] im;                        // Interrupt mask
 
 /////////////////////////////////////////////////////
@@ -151,7 +157,11 @@ assign interrupt_n_exception = ip & im;
 assign interrupt_exception = (|interrupt_n_exception) & ie;
 
 // Determine which interrupts are currently being asserted or are already pending
+`ifdef CFG_LEVEL_SENSITIVE_INTERRUPTS
+assign ip = interrupt;
+`else
 assign asserted = ip | interrupt;
+`endif
 
 assign ie_csr_read_data = {{`LM32_WORD_WIDTH-3{1'b0}},
 `ifdef CFG_DEBUG_ENABLED
@@ -229,12 +239,16 @@ begin
         bie <= `FALSE;
 `endif
         im <= {interrupts{1'b0}};
+`ifndef CFG_LEVEL_SENSITIVE_INTERRUPTS
         ip <= {interrupts{1'b0}};
+`endif
     end
     else
     begin
         // Set IP bit when interrupt line is asserted
+`ifndef CFG_LEVEL_SENSITIVE_INTERRUPTS
         ip <= asserted;
+`endif
 `ifdef CFG_DEBUG_ENABLED
         if (non_debug_exception == `TRUE)
         begin
@@ -283,8 +297,10 @@ begin
                 end
                 if (csr == `LM32_CSR_IM)
                     im <= csr_write_data[interrupts-1:0];
+`ifndef CFG_LEVEL_SENSITIVE_INTERRUPTS
                 if (csr == `LM32_CSR_IP)
                     ip <= asserted & ~csr_write_data[interrupts-1:0];
+`endif
             end
         end
     end
@@ -302,12 +318,16 @@ begin
 `ifdef CFG_DEBUG_ENABLED
         bie <= `FALSE;
 `endif
+`ifndef CFG_LEVEL_SENSITIVE_INTERRUPTS
         ip <= {interrupts{1'b0}};
+`endif
     end
     else
     begin
         // Set IP bit when interrupt line is asserted
+`ifndef CFG_LEVEL_SENSITIVE_INTERRUPTS
         ip <= asserted;
+`endif
 `ifdef CFG_DEBUG_ENABLED
         if (non_debug_exception == `TRUE)
         begin
@@ -354,8 +374,10 @@ begin
                     bie <= csr_write_data[2];
 `endif
                 end
+`ifndef CFG_LEVEL_SENSITIVE_INTERRUPTS
                 if (csr == `LM32_CSR_IP)
                     ip <= asserted & ~csr_write_data[interrupts-1:0];
+`endif
             end
         end
     end
