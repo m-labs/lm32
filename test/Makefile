@@ -10,7 +10,7 @@ EXTRA_DEFINES ?=
 
 CC      = $(CROSS_COMPILE)gcc
 OBJCOPY = $(CROSS_COMPILE)objcopy
-LDFLAGS = -Tlinker.ld -fno-builtin
+LDFLAGS = -Tlinker.ld -fno-builtin -nostdlib -lgcc
 
 RTL ?= ../rtl
 SOURCES  = tb_lm32_system.v lm32_config.v

@@ -7,7 +7,7 @@ SIZE    = $(CROSS_COMPILE)size
 LD      = $(CC)
 OBJCOPY = $(CROSS_COMPILE)objcopy
 
-LDFLAGS = -Tlinker.ld
+LDFLAGS = -Tlinker.ld -nostdlib -lgcc
 ASFLAGS += -Wa,-I,.
 
 CRT        = crt.o
