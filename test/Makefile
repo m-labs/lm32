@@ -1,4 +1,4 @@
-PREFIX ?= lm32-elf-
+CROSS_COMPILE ?= lm32-elf-
 
 # extra plusargs for simulation
 # eg. EXTRA_PLUSARGS = "+dump=dump.vcd"
@@ -8,8 +8,9 @@ EXTRA_PLUSARGS ?=
 # eg. EXTRA_DEFINES = "-DTB_ENABLE_WB_TRACES"
 EXTRA_DEFINES ?=
 
-CC := $(PREFIX)gcc
-OBJCOPY := $(PREFIX)objcopy
+CC      = $(CROSS_COMPILE)gcc
+OBJCOPY = $(CROSS_COMPILE)objcopy
+LDFLAGS = -Tlinker.ld -fno-builtin
 
 RTL ?= ../rtl
 SOURCES  = tb_lm32_system.v lm32_config.v
@@ -32,19 +33,19 @@ trace_%: %.vh tb_lm32_system
 	@vvp tb_lm32_system +trace=trace_$*.txt +prog=$< $(EXTRA_PLUSARGS)
 
 %.elf:
-	$(CC) -Tlinker.ld -fno-builtin -o $@ $^
+	$(CC) $(LDFLAGS) -o $@ $^
 
 %.vh: %.elf
 	$(OBJCOPY) -O verilog $< $@
 
 clean:
-	rm -f tb_lm32_system *.vcd *.elf *.vh trace*.txt
+	$(RM) tb_lm32_system *.vcd *.elf *.vh trace*.txt
 
 tb_lm32_system: $(SOURCES)
 	iverilog -I. -I$(RTL) -o $@ $(SOURCES) $(EXTRA_DEFINES)
 
 unittest:
-	make -C unittests check
+	$(MAKE) -C unittests check
 
 .PHONY: clean unittest
 

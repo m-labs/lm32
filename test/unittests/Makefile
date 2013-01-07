@@ -1,11 +1,11 @@
-CROSS=lm32-elf-
+CROSS_COMPILE  ?= lm32-elf-
 
-CC      = $(CROSS)gcc
-AS      = $(CROSS)as
+CC      = $(CROSS_COMPILE)gcc
+AS      = $(CROSS_COMPILE)as
 AS      = $(CC) -x assembler
-SIZE    = $(CROSS)size
+SIZE    = $(CROSS_COMPILE)size
 LD      = $(CC)
-OBJCOPY = $(CROSS)objcopy
+OBJCOPY = $(CROSS_COMPILE)objcopy
 
 LDFLAGS = -Tlinker.ld
 ASFLAGS += -Wa,-I,.
@@ -108,15 +108,15 @@ test_mmu_nop3.S: test_mmu.S
 build: $(CRT) $(TESTCASES) $(TESTCASES:.elf=.vh)
 
 check: $(TESTCASES:.elf=.vh)
-	@make -C .. tb_lm32_system
+	@$(MAKE) -C .. tb_lm32_system
 	@for case in $(TESTCASES:.elf=.vh); do \
 		echo -e "\nRunning test case $$case"; \
 		vvp ../tb_lm32_system +prog=$$case; \
 	done
 
 check_%: test_%.vh
-	@make -C .. tb_lm32_system
+	@$(MAKE) -C .. tb_lm32_system
 	vvp ../tb_lm32_system +prog=$<
 
 clean:
-	$(RM) -fr $(TESTCASES) $(TESTCASES:.elf=.vh) $(CRT) *nop?.S tb_lm32.vcd
+	$(RM) $(TESTCASES) $(TESTCASES:.elf=.vh) $(CRT) *nop?.S tb_lm32.vcd
