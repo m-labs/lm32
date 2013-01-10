@@ -7,6 +7,9 @@ SIZE    = $(CROSS_COMPILE)size
 LD      = $(CC)
 OBJCOPY = $(CROSS_COMPILE)objcopy
 
+# in case make does not have this already defined
+RM ?= rm -f
+
 LDFLAGS = -Tlinker.ld -nostdlib -lgcc
 ASFLAGS += -Wa,-I,.
 

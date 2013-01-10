@@ -10,6 +10,10 @@ EXTRA_DEFINES ?=
 
 CC      = $(CROSS_COMPILE)gcc
 OBJCOPY = $(CROSS_COMPILE)objcopy
+
+# in case make does not have this already defined
+RM ?= rm -f
+
 LDFLAGS = -Tlinker.ld -fno-builtin -nostdlib -lgcc
 
 RTL ?= ../rtl
