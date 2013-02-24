@@ -1817,7 +1817,9 @@ assign dtlb_exception = (dtlb_miss_exception == `TRUE) || (dtlb_fault_exception 
 assign privilege_exception = (   (usr == `TRUE)
                               && (   (csr_write_enable_q_x == `TRUE)
                                   || (eret_q_x == `TRUE)
+`ifdef CFG_DEBUG_ENABLED
                                   || (bret_q_x == `TRUE)
+`endif
                                  )
                              );
 `endif
@@ -1958,9 +1960,13 @@ assign stall_f =   (stall_d == `TRUE)
                 // wrong in case of a miss, that is one instruction is
                 // skipped.
                 || (   (itlbe == `TRUE)
+`ifdef CFG_DEBUG_ENABLED
                     && (   (debug_exception_q_w == `TRUE)
                         || (non_debug_exception_q_w == `TRUE)
                        )
+`else
+                    && (exception_q_w == `TRUE)
+`endif
                    )
 `endif
                 ;

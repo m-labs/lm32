@@ -203,18 +203,20 @@
 `define LM32_ADDRESS_LSBS_WIDTH         2
 
 // Width and range of a CSR index
+`ifdef CFG_MMU_ENABLED
+`define LM32_CSR_WIDTH                  5
+`else
 `ifdef CFG_DEBUG_ENABLED
 `define LM32_CSR_WIDTH                  5
-`define LM32_CSR_RNG                    (`LM32_CSR_WIDTH-1):0
 `else
 `ifdef CFG_JTAG_ENABLED
 `define LM32_CSR_WIDTH                  4
-`define LM32_CSR_RNG                    (`LM32_CSR_WIDTH-1):0
 `else
 `define LM32_CSR_WIDTH                  3
+`endif
+`endif
+`endif
 `define LM32_CSR_RNG                    (`LM32_CSR_WIDTH-1):0
-`endif
-`endif
 
 // CSR indices
 `define LM32_CSR_IE                     `LM32_CSR_WIDTH'h0
@@ -243,6 +245,8 @@
 `define LM32_CSR_WP1                    `LM32_CSR_WIDTH'h19
 `define LM32_CSR_WP2                    `LM32_CSR_WIDTH'h1a
 `define LM32_CSR_WP3                    `LM32_CSR_WIDTH'h1b
+`endif
+`ifdef CFG_MMU_ENABLED
 `define LM32_CSR_PSW                    `LM32_CSR_WIDTH'h1d
 `define LM32_CSR_TLBVADDR               `LM32_CSR_WIDTH'h1e
 `define LM32_CSR_TLBPADDR               `LM32_CSR_WIDTH'h1f  // write only
