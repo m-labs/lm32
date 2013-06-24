@@ -1,0 +1,464 @@
+\documentclass[a4paper,11pt]{article}
+\usepackage{fullpage}
+\usepackage[latin1]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[normalem]{ulem}
+\usepackage[english]{babel}
+\usepackage{listings,babel}
+\lstset{breaklines=true,basicstyle=\ttfamily}
+\usepackage{graphicx}
+\usepackage{moreverb}
+\usepackage{url}
+\usepackage{tabularx}
+
+\title{LatticeMico32 Memory Management Unit Documentation}
+\author{Yann Sionneau}
+\date{version 1.0 June 2013}
+\begin{document}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{5pt}
+\maketitle{}
+
+\tableofcontents
+
+\section{Overview}
+
+This document describes the LatticeMico32 MMU (Memory Management Unit) features and how it can be configured.
+
+This MMU is not part of the original LatticeMico32 CPU, it has been added by Yann Sionneau with the help of the Milkymist community in general and Michael Walle in particular.
+
+The LM32 MMU has been designed with "simplicity" in head, KISS (Keep It Simple Stupid) is the motto.
+
+Only the minimum has been implemented to have the minimalistic features which would allow a modern Operating System like Linux or *BSD to run, providing virtual memory and memory protection.
+
+The TLBs (Translation Lookaside Buffers) are designed to be VIPT (Virtually Indexed Physically Tagged) to allow the TLB lookup to take place in parallel of the cache lookup so that we don't need to stale the pipeline.
+
+\section{Features}
+
+\begin{itemize}
+	\item 1024 entries ITLB (Instruction Translation Lookaside Buffer)
+	\item 1024 entries DTLB (Data Translation Lookaside Buffer)
+	\item CPU exceptions generated upon
+	\begin{itemize}
+			\item ITLB miss
+			\item DTLB miss
+			\item DTLB page fault (writing to a read-only page)
+	\end{itemize}
+	\item I/D TLB lookup in parallel of the I/D Cache lookup to avoid lookup penalties
+	\item 4 kB pages
+\end{itemize}
+
+As you can see, it is quite minimalistic, here is a list of what's not featured by this MMU:
+
+\begin{itemize}
+	\item No hardware page tree walker
+	\item No dirty or present bit
+	\item No ASID (Address Space Identifier)
+	\item No lockable TLB entries
+	\item Only 1 page size supported: 4 kB
+\end{itemize}
+
+\section{TLB Layout}
+
+Let's name our 32 bits virtual address "vaddr".
+
+Let's name our 32 bits physical address "paddr".
+
+Let's say vaddr[0] is the Lowest Significant Bit and vaddr[31] the Most Significant Bit.
+
+Let's say vaddr[11:0] is the part of vaddr represented by its 12 Lowest Significant Bits.
+\newline
+
+Deep inside, the TLB is a \textbf{Direct-mapped}, \textbf{VIPT} (Virtually Indexed Physically Tagged) Cache.
+\newline
+
+When the LM32 core is synthetized with MMU support, the CPU pipeline Data and Instruction Caches turn into \textbf{VIPT} Caches as well.
+\newline
+
+The TLB is indexed by vaddr[21:12]: The bottom 10 LSB of the virtual PFN (Page Frame Number).
+\newline
+
+A TLB entry holds: Physical PFN, Physical Tag, Cache inhibit flag (for DTLB), Read-only flag (for DTLB), Valid entry tag
+\newline
+
+More precisely:
+
+\begin{itemize}
+	\item A valid DTLB entry: paddr[31:12], vaddr[31:22], paddr[2], paddr[1], 1
+	\item An invalid DTLB entry: paddr[31:12], vaddr[21:22], paddr[2], paddr[1], 0
+	\item A valid ITLB entry: paddr[31:12], vaddr[31:22], 1
+	\item An invalid ITLB entry: paddr[31:12], vaddr[31:22], 0
+\end{itemize}
+
+The meaning of paddr[2] and paddr[1] will be explained later on in the section which explains how to program the MMU using LM32 assembly instructions.
+
+\section{Interact with the TLB}
+
+In order to interact with the TLB, three CSR (Control and Status Registers) have been added to the LM32 CPU:
+
+\begin{tabular}{l p{0.5\textwidth} l}
+\bf{CSR} & \bf{Description} & \bf{R/W} \\
+\hline
+TLBVADDR & You can write the virtual pfn of the entry you want to update or invalidate or cause a TLB flush.
+\newline
+	   You can read the virtual pfn causing a TLB miss or fault.
+& Read-Write \\
+TLBPADDR & You can write the physical pfn of the entry you want to update. & Write-only \\
+TLBBADVADDR & You can read the virtual address which caused the TLB exception. & Read-only \\
+\hline
+\end{tabular}
+
+\begin{itemize}
+	\item TLBVADDR: holds a virtual address
+	\item TLBPADDR: holds a physical address
+\end{itemize}
+
+A CSR register can be written to like this:
+
+The following code writes the content of the R1 register to TLBVADDR CSR:
+\begin{lstlisting}
+wcsr TLBVADDR, r1
+\end{lstlisting}
+
+A CSR register can be read from like this:
+
+The following code writes the content of TLBPADDR CSR to the R1 register:
+\begin{lstlisting}
+rcsr r1, TLBPADDR
+\end{lstlisting}
+
+\subsection{Add or Update a TLB entry}
+
+First, make sure vaddr[2:0] == "000" (or 3'b0 in verilog) as those 3 bits will be used for other TLB operations.
+
+Then, write the virtual address to the TLBVADDR CSR.
+
+Then you need to do a logical "OR" operation on the physical address to set paddr[2:0] according to your needs:
+
+\begin{itemize}
+	\item paddr[2] set to 1 means the page won't be cached by LM32 Data Cache (only for Data Cache / DTLB)
+	\item paddr[1] set to 1 means the Page is Read-only (only valid for DTLB)
+	\item paddr[0] set to 1 means you want to update DTLB, use 0 for ITLB
+\end{itemize}
+
+Then, you need to write the OR'ed physical address to the TLBPADDR CSR.
+
+The TLB entry update will be triggered by the write to TLBPADDR CSR.
+
+Code samples:
+
+\begin{lstlisting}
+
+#define PAGE_SIZE (1 << 12)
+#define PAGE_MASK (PAGE_SIZE - 1)
+
+void update_dtlb_entry(unsigned int vaddr, unsigned int paddr, bool read-only, bool not_cached)
+{
+	paddr &= ~PAGE_MASK; // Make sure page offset is zeroed
+	vaddr &= ~PAGE_MASK; // Make sure page offset is zeroed
+	paddr |= 1; // This means we are addressing DTLB
+
+	if (read-only)
+		paddr |= 2;
+
+	if (not_cached)
+		paddr |= 4;
+
+	asm volatile("wcsr TLBVADDR, %0" :: "r"(vaddr) : );
+	asm volatile("wcsr TLBPADDR, %0" :: "r"(paddr) : );
+}
+
+void update_itlb_entry(unsigned int vaddr, unsigned int paddr, bool not_cached)
+{
+	paddr &= ~PAGE_MASK; // Make sure page offset is zeroed
+	vaddr &= ~PAGE_MASK; // Make sure page offset is zeroed
+	// We don't set paddr[0] which means we are addressing ITLB
+
+	if (not_cached)
+		paddr |= 4;
+
+	asm volatile("wcsr TLBVADDR, %0" :: "r"(vaddr) : );
+	asm volatile("wcsr TLBPADDR, %0" :: "r"(paddr) : );
+}
+\end{lstlisting}
+
+\subsection{Invalidate a TLB entry or Flush the entire TLB}
+
+First, you need to do a logical "OR" operation on the virtual address to set vaddr[2:0] according to your needs:
+
+\begin{itemize}
+	\item vaddr[2] set to 1 will trigger a flush of the entire selected TLB
+	\item vaddr[1] set to 1 will trigger the invalidation of the entry indexed by vaddr[21:12] inside the selected TLB
+	\item vaddr[0] set to 1 means you want to operate on DTLB, use 0 for ITLB
+\end{itemize}
+
+The action is triggered upon the write of the OR'ed virtual address to the TLBVADDR CSR.
+
+Code samples:
+
+\begin{lstlisting}
+
+#define PAGE_SIZE (1 << 12)
+#define PAGE_MASK (PAGE_SIZE - 1)
+
+void invalidate_dtlb_entry(unsigned int vaddr)
+{
+	vaddr &= ~PAGE_MASK; // Make sure page offset is zeroed
+	/*
+	 * 1 because we are addressing DTLB
+         * 2 because we want to invalidate a specific line
+	 */
+	vaddr |= 1 | 2;
+
+	asm volatile("wcsr TLBVADDR, %0" :: "r"(vaddr) : );
+}
+
+void invalidate_itlb_entry(unsigned int vaddr)
+{
+	vaddr &= ~PAGE_MASK; // Make sure page offset is zeroed
+	vaddr |= 2; // 2 because we want to invalidate a specific line
+
+	asm volatile("wcsr TLBVADDR, %0" :: "r"(vaddr) : );
+}
+
+void flush_dtlb(void)
+{
+	unsigned int cmd = 1 | 4;
+	asm volatile("wcsr TLBVADDR, %0" :: "r"(cmd) : );
+}
+
+void flush_itlb(void)
+{
+	unsigned int cmd = 4;
+	asm volatile("wcsr TLBVADDR, %0" :: "r"(cmd) : );
+}
+
+\end{lstlisting}
+
+\subsection{A sum up of TLB actions}
+
+To summarize all possible TLB actions:
+
+\begin{itemize}
+	\item Writing to TLBPADDR triggers the update of a TLB entry according to the content of TLBVADDR and TLBPADDR
+	\item Writing to TLBVADDR either prepares for updating a TLB entry if it is followed by a write operation to TLBPADDR or immediately triggers an action determined by bits vaddr[2:0] written to TLBVADDR. In the latter case, the action is performed on the TLB entry indexed by vaddr[21:12].
+\end{itemize}
+
+Possible actions triggered by writing to TLBVADDR:
+
+\begin{tabular}{|c|l|}
+\hline
+\bf{vaddr[2:0]} & \bf{action} \\
+\hline
+000 & No Operation, used for updating TLB entry by writting to TLBPADDR \\
+\hline
+011 & Invalidate DTLB entry indexed by vaddr[21:12] \\
+\hline
+010 & Invalidate ITLB entry indexed by vaddr[21:12] \\
+\hline
+101 & Flush DTLB \\
+\hline
+100 & Flush ITLB \\
+\hline
+11x & Not deterministic, do not use untill it's defined by a future MMU revision \\
+\hline
+\end{tabular}
+
+\section{Interact with the MMU}
+
+In order to interact with the MMU, a new CSR (Control and Status Register) has been added: PSW (Processor Status Word)
+
+\begin{tabular}{|c|l|}
+\hline
+\bf{Bits} & \bf{Meaning} \\
+\hline
+31:12 & unused \\
+\hline
+11 & BUSR: Breakpoint backup of USR\\
+\hline
+10 & EUSR: Exception backup of USR\\
+\hline
+9 & USR: User mode bit\\
+\hline
+8 & BDTLBE: Breakpoint backup of DTLBE \\
+\hline
+7 & EDTLBE: Exception backup of DTLBE \\
+\hline
+6 & DTLBE: DTLB enabled \\
+\hline
+5 & BITLBE: Breakpoint backup of ITLBE \\
+\hline
+4 & EITLBE: Exception backup of ITLBE \\
+\hline
+3 & ITLBE: ITLB enabled \\
+\hline
+2 & IE.BIE $^{*}$ \\
+\hline
+1 & IE.EIE $^{*}$ \\
+\hline
+0 & IE.IE $^{*}$ \\
+\hline
+\end{tabular}
+
+(*) PSW[2:0] is a real mirror of IE[2:0] as described in the LatticeMico32 Processor Reference Manuel p. 10 Table 5 "Fields of the IE CSR". In any condition: PSW[2:0] == IE[2:0]. IE CSR is mirrored in the lower bits of PSW CSR for compatibility reasons. Old programs (ignorant of the MMU) will keep using IE CSR, newer programs can use PSW to deal with MMU and interrupts.
+
+\subsection{Activate the MMU}
+
+Activating the MMU is done by activating each TLB by writing 1 into PSW[ITLBE] and PSW[DTLBE].
+
+\begin{lstlisting}
+void enable_mmu(void)
+{
+	asm volatile("rcsr r1, PSW\n\t"
+		     "ori r1, r1, 72\n\t"
+		     "wcsr PSW, r1" ::: "r1");
+}
+\end{lstlisting}
+
+\subsection{Deactivate the MMU}
+
+Disactivating the MMU is done by deactivating each TLB by writing 0 into PSW[ITLBE] and PSW[DTLBE].
+
+\begin{lstlisting}
+void disable_mmu(void)
+{
+	unsigned int mask = ~(72);
+	asm volatile("rcsr r1, PSW\n\t"
+		     "and r1, r1, %0\n\t"
+		     "wcsr PSW, r1" :: "r"(mask) : "r1");
+}
+\end{lstlisting}
+
+\section{TLB lookups}
+
+This section explains in details how the TLB lookup takes place: what happens in which condition.
+
+If the TLBs are disabled, nothing special happens, LM32 will behave as if it has been synthetized without MMU support (except for the presence of PSW, TLBVADDR and TLBPADDR).
+
+If DTLB is enabled:
+
+In parallel of the Data Cache lookup, the DTLB lookup happens.
+
+If the DTLB contains an invalid TLB entry, then the DTLB generates a DTLB miss exception.
+
+If the DTLB contains a valid TLB entry, the DTLB uses vaddr[21:11] as an index to the DTLB and compares vaddr[31:22] with the DTLB entry tag, if this comparison fails: the DTLB generates a DTLB miss exception as well.
+
+If the DTLB contains a valid TLB entry and the vaddr[21:11] used to index the DTLB matches the DTLB entry tag:
+
+\begin{itemize}
+	\item Then if the memory access was a READ (lb, lbu, lh, lhu, lw)
+	\begin{itemize}
+		\item the Data Cache compares the tag of its selected line with the paddr[31:11] extracted from the DTLB to check if we Hit or Miss the Data Cache
+		\item Then the usual Cache refill happens (using the physical address) in case of a cache miss
+	\end{itemize}
+	\item Then if the memory access was a WRITE (sb, sh, sw)
+	\begin{itemize}
+		\item The read-only bit flag contained in the DTLB entry is checked
+		\begin{itemize}
+			\item If it is set: it triggers a DTLB fault CPU exception
+			\item If it's not set: The Data Cache does the same tag comparison as with the READ operation to check for Cache Hit/Miss
+		\end{itemize}
+	\end{itemize}
+\end{itemize}
+
+All these behaviours are summed up in the following table:
+\newline
+
+\begin{tabular}{|l l p{0.5\textwidth}|}
+\hline
+\bf{Exception} & \bf{EID} & \bf{Condition} \\
+\hline
+ITLB miss & 8 &
+\parbox{0.5\textwidth}{
+\begin{itemize}
+	\item ITLB entry is invalid
+	\item ITLB entry tag does not match vaddr[21:12]
+\end{itemize} }
+\\
+\hline
+DTLB miss & 9 &
+\parbox{0.5\textwidth}{
+\begin{itemize}
+	\item DTLB entry is invalid
+	\item DTLB entry tag does not match vaddr[21:12]
+\end{itemize} }
+\\
+\hline
+DTLB fault & 10 &
+DTLB entry is valid \newline\textbf{AND} the entry tag matches vaddr[21:12] \newline\textbf{AND} the read-only bit is set \newline\textbf{AND} the cpu is doing a memory store
+\\
+\hline
+Privilege exception & 11 &
+\parbox{0.5\textwidth}{
+PSW[USR] == 1 and one of the following instruction is executed:\newline
+\begin{itemize}
+	\item iret
+	\item bret
+	\item wcsr
+\end{itemize}
+}
+\\
+\hline
+\end{tabular}
+
+The "\textbf{Condition}" column's content is a logical \textbf{OR} between each bullet point except for the DTLB fault where the logical \textbf{AND} is explicitly specified.
+
+\section{CSR registers special behaviours}
+
+Upon any exception, PSW CSR is modified automatically by the CPU pipeline itself:
+
+\begin{itemize}
+	\item PSW[ITLBE] is saved in PSW[EITLBE] and the former is cleared
+	\item PSW[DTLBE] is saved in PSW[EDTLBE] and the former is cleared
+	\item PSW[USR] is saved in PSW[EUSR] and the former is cleared
+	\item TLBVADDR is pre-charged with the virtual PFN (page frame number) which caused an exception (in case of TLB miss or fault only)
+	\begin{itemize}
+		\item TLBVADDR[0] is set to 1 when then exception is caused by DTLB, else it is clear
+		\item In case of DTLB miss or fault, TLBVADDR[31:12] is pre-charged the virtual PFN whose load or store operation caused the exception
+		\item In case of ITLB miss, TLBVADDR[31:12] is pre-charged with the virtual PFN of the instruction whose fetch caused the exception
+		\item This mechanism allows for faster TLB miss handling because TLBVADDR is already pre-charged with the right value
+		\item Since TLBVADDR is pre-charged with the virtual PFN: page offset bits (TLBVADDR[11:1]) are not set
+	\end{itemize}
+	\item TLBBADVADDR$^{**}$ is written with a virtual address when an exception is caused by a TLB miss
+	\begin{itemize}
+		\item In case of ITLB miss, TLBBADVADDR[31:1] contains the PC address whose fetch triggered the ITLB miss exception
+		\item In case of DTLB miss or fault, TLBBADVADDR[31:1] contains the virtual address whose load or store operation caused the exception
+		\item Unlike TLBVADDR, TLBBADVADDR page offset bits are set according to what caused the exception
+	\end{itemize}
+\end{itemize}
+
+$^{*}$ In LM32 pipeline, exception happens in the e\textbf{X}ecute stage, even though they may be triggered in the \textbf{F}etch or \textbf{M}emory stage for example. Load and Store instructions therefore stall the pipeline for 1 cycle during the e\textbf{X}ecute stage if the DTLB is activated.
+
+$^{**}$ TLBBADVADDR is the same CSR ID as TLBPADDR. The former is read-only and the latter is write-only.
+
+Upon any breakpoint hit, PSW CSR is also modified by the CPU pipeline:
+
+\begin{itemize}
+	\item PSW[ITLBE] is saved in PSW[BITLBE] and the former is cleared
+	\item PSW[DTLBE] is saved in PSW[BDTLBE] and the former is cleared
+	\item PSW[USR] is saved in PSW[BUSR] and the former is cleared
+\end{itemize}
+
+This means MMU is \textbf{turned off} upon CPU exception or breakpoint hit.
+
+Upon return from exception (\textbf{iret} instruction), PSW CSR is also modified by the CPU pipeline:
+
+\begin{itemize}
+	\item PSW[ITLBE] is restored using the value from PSW[EITLBE]
+	\item PSW[DTLBE] is restored using the value from PSW[EDTLBE]
+	\item PSW[USR] is restored using the value from PSW[EUSR]
+\end{itemize}
+
+Upon return from breakpoint (\textbf{bret} instruction), PSW CSR is also modified by the CPU pipeline:
+
+\begin{itemize}
+	\item PSW[ITLBE] is restored using the value from PSW[BITLBE]
+	\item PSW[DTLBE] is restored using the value from PSW[BDTLBE]
+	\item PSW[USR] is restored using the value from PSW[BUSR]
+\end{itemize}
+
+\section*{Copyright notice}
+Copyright \copyright 2013 Yann Sionneau. \\
+Permission is granted to copy, distribute and/or modify this document under the terms of the BSD License.
+
+\end{document}
