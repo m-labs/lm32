@@ -48,8 +48,7 @@ test bench. Try it, by typing
   make sim_hello_world
 in the test/ directory.
 
-For an example of a larger project which uses this core, see milkymist [4]
-and milkymist-ng [5].
+For an example of a larger project which uses this core, see MiSoC [4].
 
 
 References
@@ -58,5 +57,4 @@ References
 [1] http://www.latticesemi.com
 [2] http://www.latticesemi.com/documents/doc20890x45.pdf
 [3] http://iverilog.icarus.com
-[4] http://github.com/milkymist/milkymist
-[5] http://github.com/milkymist/milkymist-ng
+[4] http://github.com/milkymist/misoc
