@@ -185,6 +185,7 @@ module lm32_instruction_unit (
 // Parameters
 /////////////////////////////////////////////////////
 
+parameter eba_reset = `CFG_EBA_RESET;
 parameter associativity = 1;                            // Associativity of the cache (Number of ways)
 parameter sets = 512;                                   // Number of sets
 parameter bytes_per_line = 16;                          // Number of bytes per cache line
@@ -654,12 +655,12 @@ begin
         if (at_debug == `TRUE)
             pc_f <= (`CFG_DEBA_RESET-4)/4;
         else
-            pc_f <= (`CFG_EBA_RESET-4)/4;
+            pc_f <= (eba_reset-4)/4;
 `else
-        pc_f <= (`CFG_EBA_RESET-4)/4;
+        pc_f <= (eba_reset-4)/4;
 `endif
 `else
-        pc_f <= (`CFG_EBA_RESET-4)/4;
+        pc_f <= (eba_reset-4)/4;
 `endif
         pc_d <= {`LM32_PC_WIDTH{1'b0}};
         pc_x <= {`LM32_PC_WIDTH{1'b0}};
