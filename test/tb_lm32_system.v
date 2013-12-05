@@ -212,7 +212,7 @@ end
 assign d_dat_i = dmem_dat_o;
 assign dmem_dat_i = d_dat_o;
 assign dmem_adr = d_adr[15:2];
-assign dmem_we = {4{d_cyc & d_stb & d_we}} & d_sel;
+assign dmem_we = {4{d_cyc & d_stb & d_we & ~|d_adr[31:16]}} & d_sel;
 
 // interrupts
 initial interrupt <= 32'b0;
