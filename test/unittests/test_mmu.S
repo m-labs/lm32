@@ -299,6 +299,24 @@ test_name MMU_USER_MODE_5
     calli disable_user_mode
     check_r3 0xa00
 
+# writing IE should set PSW bits, too
+test_name PSW_IE_1
+    mvi r1, 0x70
+    wcsr PSW, r1
+    mvi r1, 7
+    wcsr IE, r1
+    rcsr r3, PSW
+    wcsr PSW, r0
+    check_r3 0x77
+
+# writing PSW should set IE bits
+test_name PSW_IE_2
+    mvi r1, 0x27
+    wcsr PSW, r1
+    rcsr r3, IE
+    wcsr PSW, r0
+    check_r3 7
+
 end
 
 enable_itlb:
