@@ -31,7 +31,7 @@ The LM32 MMU has been designed with "simplicity" in head, KISS (Keep It Simple S
 
 Only the minimum has been implemented to have the minimalistic features which would allow a modern Operating System like Linux or *BSD to run, providing virtual memory and memory protection.
 
-The TLBs (Translation Lookaside Buffers) are designed to be VIPT (Virtually Indexed Physically Tagged) to allow the TLB lookup to take place in parallel of the cache lookup so that we don't need to stale the pipeline.
+The Caches are designed to be VIPT (Virtually Indexed Physically Tagged) to allow the TLB lookup to take place in parallel of the cache lookup so that we don't need to stale the pipeline.
 
 \section{Features}
 
@@ -69,10 +69,10 @@ Let's say vaddr[0] is the Lowest Significant Bit and vaddr[31] the Most Signific
 Let's say vaddr[11:0] is the part of vaddr represented by its 12 Lowest Significant Bits.
 \newline
 
-Deep inside, the TLB is a \textbf{Direct-mapped}, \textbf{VIPT} (Virtually Indexed Physically Tagged) Cache.
+Deep inside, the TLB is a \textbf{Direct-mapped}, \textbf{VIVT} (Virtually Indexed Virtually Tagged) Cache.
 \newline
 
-When the LM32 core is synthetized with MMU support, the CPU pipeline Data and Instruction Caches turn into \textbf{VIPT} Caches as well.
+When the LM32 core is synthetized with MMU support, the CPU pipeline Data and Instruction Caches turn into \textbf{VIPT} (Virtually Indexed Physically Tagged) Caches.
 \newline
 
 The TLB is indexed by vaddr[21:12]: The bottom 10 LSB of the virtual PFN (Page Frame Number).
@@ -168,14 +168,11 @@ void update_dtlb_entry(unsigned int vaddr, unsigned int paddr, bool read-only, b
 	asm volatile("wcsr TLBPADDR, %0" :: "r"(paddr) : );
 }
 
-void update_itlb_entry(unsigned int vaddr, unsigned int paddr, bool not_cached)
+void update_itlb_entry(unsigned int vaddr, unsigned int paddr)
 {
 	paddr &= ~PAGE_MASK; // Make sure page offset is zeroed
 	vaddr &= ~PAGE_MASK; // Make sure page offset is zeroed
 	// We don't set paddr[0] which means we are addressing ITLB
-
-	if (not_cached)
-		paddr |= 4;
 
 	asm volatile("wcsr TLBVADDR, %0" :: "r"(vaddr) : );
 	asm volatile("wcsr TLBPADDR, %0" :: "r"(paddr) : );
@@ -339,16 +336,18 @@ If DTLB is enabled:
 
 In parallel of the Data Cache lookup, the DTLB lookup happens.
 
-If the DTLB contains an invalid TLB entry, then the DTLB generates a DTLB miss exception.
+DTLB is indexed by vaddr[21:11].
 
-If the DTLB contains a valid TLB entry, the DTLB uses vaddr[21:11] as an index to the DTLB and compares vaddr[31:22] with the DTLB entry tag, if this comparison fails: the DTLB generates a DTLB miss exception as well.
+If the DTLB entry is invalid (i.e. invalid bit is set), then the DTLB generates a DTLB miss exception.
 
-If the DTLB contains a valid TLB entry and the vaddr[21:11] used to index the DTLB matches the DTLB entry tag:
+If the DTLB entry is valid, the DTLB compares vaddr[31:22] with the DTLB entry tag, if this comparison fails: the DTLB generates a DTLB miss exception as well.
+
+If the DTLB entry is valid and the vaddr[31:22] matches the DTLB entry tag:
 
 \begin{itemize}
 	\item Then if the memory access was a READ (lb, lbu, lh, lhu, lw)
 	\begin{itemize}
-		\item the Data Cache compares the tag of its selected line with the paddr[31:11] extracted from the DTLB to check if we Hit or Miss the Data Cache
+		\item the Data Cache compares the tag of its selected line with the paddr[31:12] extracted from the DTLB to check if we Hit or Miss the Data Cache
 		\item Then the usual Cache refill happens (using the physical address) in case of a cache miss
 	\end{itemize}
 	\item Then if the memory access was a WRITE (sb, sh, sw)
@@ -372,7 +371,7 @@ ITLB miss & 8 &
 \parbox{0.5\textwidth}{
 \begin{itemize}
 	\item ITLB entry is invalid
-	\item ITLB entry tag does not match vaddr[21:12]
+	\item ITLB entry tag does not match vaddr[31:22]
 \end{itemize} }
 \\
 \hline
@@ -380,12 +379,12 @@ DTLB miss & 9 &
 \parbox{0.5\textwidth}{
 \begin{itemize}
 	\item DTLB entry is invalid
-	\item DTLB entry tag does not match vaddr[21:12]
+	\item DTLB entry tag does not match vaddr[31:22]
 \end{itemize} }
 \\
 \hline
 DTLB fault & 10 &
-DTLB entry is valid \newline\textbf{AND} the entry tag matches vaddr[21:12] \newline\textbf{AND} the read-only bit is set \newline\textbf{AND} the cpu is doing a memory store
+DTLB entry is valid \newline\textbf{AND} the entry tag matches vaddr[31:22] \newline\textbf{AND} the read-only bit is set \newline\textbf{AND} the cpu is doing a memory store
 \\
 \hline
 Privilege exception & 11 &
@@ -421,8 +420,8 @@ Upon any exception, PSW CSR is modified automatically by the CPU pipeline itself
 	\end{itemize}
 	\item TLBBADVADDR$^{**}$ is written with a virtual address when an exception is caused by a TLB miss
 	\begin{itemize}
-		\item In case of ITLB miss, TLBBADVADDR[31:1] contains the PC address whose fetch triggered the ITLB miss exception
-		\item In case of DTLB miss or fault, TLBBADVADDR[31:1] contains the virtual address whose load or store operation caused the exception
+		\item In case of ITLB miss, TLBBADVADDR[31:2] contains the PC address whose fetch triggered the ITLB miss exception. Instructions being 32 bits aligned, PC[1:0] is always 00.
+		\item In case of DTLB miss or fault, TLBBADVADDR[31:0] contains the virtual address whose load or store operation caused the exception
 		\item Unlike TLBVADDR, TLBBADVADDR page offset bits are set according to what caused the exception
 	\end{itemize}
 \end{itemize}
