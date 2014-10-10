@@ -1,17 +1,13 @@
-TEX=mmu.tex
+DOCS=mmu.html
 
 RM ?= rm -f
 
-PDF=$(TEX:.tex=.pdf)
-AUX=$(TEX:.tex=.aux)
-LOG=$(TEX:.tex=.log)
+all: $(DOCS)
 
-all: $(PDF)
-
-%.pdf: %.tex
-	texi2pdf $<
+%.html: %.rst
+	rst2html $< >$@
 
 clean:
-	$(RM) $(PDF) $(LOG) $(AUX)
+	$(RM) $(DOCS)
 
 .PHONY: clean
